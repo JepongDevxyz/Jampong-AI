@@ -1,17 +1,11 @@
-
 let currentKeyIndex = 0;
 
 function getNextApiKey() {
   const keysEnv = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
-  // I-split ang keys gamit ang kuwit at tanggalin ang extra spaces
   const keys = keysEnv.split(',').map(k => k.trim()).filter(Boolean);
-  
   if (keys.length === 0) return null;
-  
-  // Kunin ang kasalukuyang key at i-update ang index para sa susunod (rotational)
   const apiKey = keys[currentKeyIndex];
   currentKeyIndex = (currentKeyIndex + 1) % keys.length;
-  
   return apiKey;
 }
 
@@ -26,31 +20,27 @@ export default async function handler(req, res) {
   try {
     const { prompt, model, history, image, webSearch, studyMode, strictTutoring, systemMode } = req.body;
     
-    // Tawagin ang rotational function para makuha ang susunod na API Key
     const apiKey = getNextApiKey();
-
     if (!apiKey) {
       return res.status(500).json({ error: 'API Keys missing on Vercel Environment Variables.' });
     }
 
-    // Default System Instruction & Identity
     let systemInstruction = `Ikaw si Jampong AI, isang mahusay at matalinong academic tutor na dalubhasa sa lahat ng asignatura.`;
 
     if (strictTutoring) {
-      systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot sa mga takdang-aralin o problema. Gabayan ang estudyante gamit ang mga pahiwatig (Socratic Method) at step-by-step questions.`;
+      systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang mga pahiwatig (Socratic Method).`;
     }
     if (studyMode) {
-      systemInstruction += `\n[STUDY MODE ACTIVE]: Ibigay ang sagot sa anyo ng structured summary, bulleted points, flashcard-style concepts, at maikling 3-question quiz sa huli.`;
+      systemInstruction += `\n[STUDY MODE ACTIVE]: Ibigay ang sagot sa anyo ng structured summary, bulleted points, at maikling 3-question quiz sa huli.`;
     }
     if (systemMode === 'calculator') {
-      systemInstruction += `\n[CALCULATOR MODE]: Magpakita ng detalyadong mathematical resolution breakdown na may mga pormula at tiyak na huling halaga.`;
+      systemInstruction += `\n[CALCULATOR MODE]: Magpakita ng detalyadong mathematical resolution breakdown.`;
     } else if (systemMode === 'coding') {
-      systemInstruction += `\n[CODING ASSISTANT]: Magbigay ng malinis, modular, at functional code snippets na may inline comments at paliwanag sa logic.`;
+      systemInstruction += `\n[CODING ASSISTANT]: Magbigay ng malinis at functional code snippets na may inline comments.`;
     }
 
     const contents = [];
 
-    // Parse History
     if (Array.isArray(history)) {
       history.forEach(item => {
         contents.push({
@@ -60,8 +50,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Attach Current User Payload
-    const userParts = [{ text: `${systemInstruction}\n\nUser Input: ${prompt}` }];
+    const userParts = [{ text: `${systemInstruction}\n\nUser Input: ${prompt || 'Analyze this image.'}` }];
 
     if (image) {
       const base64Data = image.includes(',') ? image.split(',')[1] : image;
@@ -73,7 +62,8 @@ export default async function handler(req, res) {
 
     contents.push({ role: 'user', parts: userParts });
 
-    const selectedModel = model || 'gemini-1.5-flash';
+    // Siguraduhing ligtas at gumagana ang model name
+    const selectedModel = (model && model.includes('flash')) ? model : 'gemini-1.5-flash';
     const payload = { contents };
 
     if (webSearch) {
@@ -81,6 +71,7 @@ export default async function handler(req, res) {
     }
 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+    
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -88,12 +79,17 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
+    
+    if (data.error) {
+      console.error('Gemini API Error Details:', JSON.stringify(data.error));
+      throw new Error(data.error.message || 'Gemini API Error');
+    }
 
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Walang natanggap na sagot mula sa model.';
     return res.status(200).json({ response: reply });
 
   } catch (err) {
+    console.error('Server Handler Error:', err.message);
     return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
