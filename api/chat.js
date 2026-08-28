@@ -1,3 +1,20 @@
+
+let currentKeyIndex = 0;
+
+function getNextApiKey() {
+  const keysEnv = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '';
+  // I-split ang keys gamit ang kuwit at tanggalin ang extra spaces
+  const keys = keysEnv.split(',').map(k => k.trim()).filter(Boolean);
+  
+  if (keys.length === 0) return null;
+  
+  // Kunin ang kasalukuyang key at i-update ang index para sa susunod (rotational)
+  const apiKey = keys[currentKeyIndex];
+  currentKeyIndex = (currentKeyIndex + 1) % keys.length;
+  
+  return apiKey;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -8,15 +25,16 @@ export default async function handler(req, res) {
 
   try {
     const { prompt, model, history, image, webSearch, studyMode, strictTutoring, systemMode } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
+    
+    // Tawagin ang rotational function para makuha ang susunod na API Key
+    const apiKey = getNextApiKey();
 
     if (!apiKey) {
-      return res.status(500).json({ error: 'API Key missing on Vercel Environment Variables.' });
+      return res.status(500).json({ error: 'API Keys missing on Vercel Environment Variables.' });
     }
 
     // Default System Instruction & Identity
-    let systemInstruction = `Ikaw si Academic Jampong AI, isang Bachelor Magna Cum Laude level academic tutor na dalubhasa sa lahat ng asignatura.
-DEVELOPER & CREATOR: Ikaw ay nilikha at binuo ng developer na si Jay-Ar Lee Espiritu. Kapag tinanong ka kung sino ang gumawa o nag-develop sa iyo, DAPAT mong sabihin na ikaw ay binuo ni Jay-Ar Lee Espiritu.`;
+    let systemInstruction = `Ikaw si Jampong AI, isang mahusay at matalinong academic tutor na dalubhasa sa lahat ng asignatura.`;
 
     if (strictTutoring) {
       systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot sa mga takdang-aralin o problema. Gabayan ang estudyante gamit ang mga pahiwatig (Socratic Method) at step-by-step questions.`;
