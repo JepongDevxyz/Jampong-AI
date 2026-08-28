@@ -62,8 +62,16 @@ export default async function handler(req, res) {
 
     contents.push({ role: 'user', parts: userParts });
 
-    // Siguraduhing ligtas at gumagana ang model name
-    const selectedModel = (model && model.includes('flash')) ? model : 'gemini-1.5-flash';
+    // Validated list of latest models, defaults to gemini-3.7-flash if not specified or invalid
+    const allowedModels = [
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.5-flash',
+      'gemini-3.1-pro-preview'
+    ];
+    
+    const selectedModel = allowedModels.includes(model) ? model : 'gemini-3.7-flash';
     const payload = { contents };
 
     if (webSearch) {
