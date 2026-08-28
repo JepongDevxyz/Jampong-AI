@@ -62,35 +62,54 @@ export default async function handler(req, res) {
 
     contents.push({ role: 'user', parts: userParts });
 
-    // Validated list of latest models, defaults to gemini-3.7-flash if not specified or invalid
-    const allowedModels = [
+    // Listahan ng mga models na may kasamang automatic fallback kung ma-overload ang una
+    const preferredModel = model && [
       'gemini-3.7-flash',
       'gemini-3.6-flash',
       'gemini-3.5-flash-lite',
       'gemini-3.5-flash',
       'gemini-3.1-pro-preview'
-    ];
-    
-    const selectedModel = allowedModels.includes(model) ? model : 'gemini-3.7-flash';
-    const payload = { contents };
+    ].includes(model) ? model : 'gemini-3.7-flash';
 
-    if (webSearch) {
-      payload.tools = [{ google_search: {} }];
+    // Ilagay muna ang pinili sa unahan, sundan ng iba bilang fallback
+    const fallbackModels = [
+      preferredModel,
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite'
+    ];
+
+    let data = null;
+    let lastError = null;
+
+    // Subukan isa-isa ang mga models hanggang sa may lumusot
+    for (const currentModel of fallbackModels) {
+      const payload = { contents };
+      if (webSearch) {
+        payload.tools = [{ google_search: {} }];
+      }
+
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      data = await response.json();
+
+      if (!data.error) {
+        lastError = null;
+        break; // Tagumpay, lumabas na sa loop
+      } else {
+        lastError = data.error.message;
+        console.warn(`Model ${currentModel} failed with error: ${lastError}. Trying next fallback...`);
+      }
     }
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-    
-    if (data.error) {
-      console.error('Gemini API Error Details:', JSON.stringify(data.error));
-      throw new Error(data.error.message || 'Gemini API Error');
+    if (lastError) {
+      throw new Error(` Lahat ng models ay nag-error: ${lastError}`);
     }
 
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Walang natanggap na sagot mula sa model.';
