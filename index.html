@@ -111,6 +111,45 @@
     .fade-transition {
       transition: opacity 0.5s ease-in-out;
     }
+
+    /* Jakub Antalik Style Orb Animation Components */
+    @keyframes orb-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes orb-pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.98); }
+      50% { opacity: 0.9; transform: scale(1.02); }
+    }
+    .orb-container {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      animation: orb-pulse 2.5s infinite ease-in-out;
+    }
+    .orb-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #ffffff 0%, #94a3b8 40%, #1e293b 100%);
+      box-shadow: inset 0 0 4px rgba(255,255,255,0.8), 0 0 8px rgba(99, 102, 241, 0.5);
+      position: relative;
+      overflow: hidden;
+    }
+    .orb-dot::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border: 1.5px dashed rgba(255, 255, 255, 0.6);
+      border-radius: 50%;
+      animation: orb-spin 4s linear infinite;
+    }
   </style>
 </head>
 <body class="h-[100dvh] w-screen flex flex-col antialiased select-none">
@@ -493,8 +532,8 @@
 
       <div id="status-indicator-bar" class="hidden shrink-0 px-4 py-1.5 bg-indigo-600/20 border-b border-indigo-500/30 flex items-center justify-between text-xs">
         <span class="flex items-center gap-2 text-indigo-600 dark:text-indigo-300 font-medium">
-          <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
-          <span id="indicator-text">Processing request with Jampong AI...</span>
+          <div class="orb-container !p-1 !bg-transparent !border-0 !shadow-none"><div class="orb-dot"></div></div>
+          <span id="indicator-text">Thinking...</span>
         </span>
         <button onclick="stopGeneration()" class="px-2.5 py-0.5 bg-red-500/30 hover:bg-red-500/50 text-red-600 dark:text-red-200 text-[11px] rounded-md transition font-medium">Stop</button>
       </div>
@@ -666,7 +705,7 @@
       const container = document.getElementById('dict-results');
       if(!q) return;
 
-      container.innerHTML = `<div class="text-center py-4 text-gray-400"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto mb-1"></i> Searching Merriam-Webster...</div>`;
+      container.innerHTML = `<div class="text-center py-4 text-gray-400"><div class="orb-container mx-auto mb-2"><div class="orb-dot"></div></div> Searching Merriam-Webster...</div>`;
       lucide.createIcons();
 
       try {
@@ -749,7 +788,7 @@
       document.getElementById('exam-current-topic').innerText = topic;
 
       const container = document.getElementById('exam-questions-container');
-      container.innerHTML = `<div class="text-center py-10 text-gray-400"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-amber-400"></i> Generating custom exam via AI...</div>`;
+      container.innerHTML = `<div class="text-center py-10 text-gray-400"><div class="orb-container mx-auto mb-2"><div class="orb-dot"></div></div> Generating custom exam via AI...</div>`;
       lucide.createIcons();
 
       examData = [];
@@ -1099,7 +1138,7 @@
         else { showToast('Please enter text or URL for QR code.'); }
       } else {
         isVisionProcessing = true;
-        indicatorText.innerText = dolaMode === 'generate' ? "Generating/Editing image with Gemini Vision..." : "Analyzing homework with Core Engine...";
+        indicatorText.innerText = dolaMode === 'generate' ? "Solving..." : "Thinking...";
         closeDolaModal();
         submitPrompt(prompt);
       }
@@ -1293,6 +1332,11 @@
       renderChatMessages();
 
       statusIndicatorBar.classList.remove('hidden');
+      indicatorText.innerText = "Thinking...";
+      
+      // Dynamic cycle to mimic Jakub Antalik style thinking / solving states
+      setTimeout(() => { if(!activeAbortController?.signal.aborted) indicatorText.innerText = "Solving..."; }, 1500);
+
       activeAbortController = new AbortController();
 
       try {
