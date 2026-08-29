@@ -566,10 +566,7 @@
 
   <script>
     if (typeof marked !== 'undefined') {
-      marked.setOptions({
-        gfm: true,
-        breaks: true
-      });
+      marked.setOptions({ gfm: true, breaks: true });
     }
 
     const bibleVerses = [
@@ -605,7 +602,6 @@
       }, 5000);
     }
 
-    // Direct Image Download Helper (Blob Stream)
     async function downloadImageBlob(url, quality) {
       try {
         showToast(`Preparing ${quality} download...`);
@@ -644,31 +640,13 @@
     document.addEventListener('DOMContentLoaded', () => {
       const handle = document.getElementById('resize-handle');
       const container = document.getElementById('preview-grid-container');
-
       let isDragging = false;
 
       if(handle && container) {
-        handle.addEventListener('touchstart', (e) => {
-          isDragging = true;
-          e.preventDefault();
-        }, { passive: false });
-
-        handle.addEventListener('mousedown', (e) => {
-          isDragging = true;
-          e.preventDefault();
-        });
-
-        window.addEventListener('touchmove', (e) => {
-          if (!isDragging) return;
-          const clientY = e.touches[0].clientY;
-          adjustPanes(clientY);
-        }, { passive: false });
-
-        window.addEventListener('mousemove', (e) => {
-          if (!isDragging) return;
-          adjustPanes(e.clientY);
-        });
-
+        handle.addEventListener('touchstart', (e) => { isDragging = true; e.preventDefault(); }, { passive: false });
+        handle.addEventListener('mousedown', (e) => { isDragging = true; e.preventDefault(); });
+        window.addEventListener('touchmove', (e) => { if (isDragging) adjustPanes(e.touches[0].clientY); }, { passive: false });
+        window.addEventListener('mousemove', (e) => { if (isDragging) adjustPanes(e.clientY); });
         window.addEventListener('touchend', () => { isDragging = false; });
         window.addEventListener('mouseup', () => { isDragging = false; });
       }
@@ -676,12 +654,9 @@
       function adjustPanes(yPos) {
         const rect = container.getBoundingClientRect();
         const offsetY = yPos - rect.top;
-        const totalHeight = rect.height;
-        
-        let percentage = (offsetY / totalHeight) * 100;
+        let percentage = (offsetY / rect.height) * 100;
         if (percentage < 15) percentage = 15;
         if (percentage > 85) percentage = 85;
-
         container.style.gridTemplateRows = `${percentage}fr 10px ${100 - percentage}fr`;
       }
     });
@@ -965,8 +940,6 @@
       let touchStartY = 0;
       let touchEndX = 0;
       let touchEndY = 0;
-      const minSwipeDistance = 50; 
-      const maxVerticalOffset = 60; 
 
       document.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
@@ -976,16 +949,12 @@
       document.addEventListener('touchend', (e) => {
         touchEndX = e.changedTouches[0].screenX;
         touchEndY = e.changedTouches[0].screenY;
-        handleSwipeGesture();
-      }, { passive: true });
-
-      function handleSwipeGesture() {
         const xDistance = touchEndX - touchStartX;
         const yDistance = Math.abs(touchEndY - touchStartY);
-        if (yDistance > maxVerticalOffset) return;
-        if (xDistance > minSwipeDistance && touchStartX < 50) toggleSidebar(true);
-        else if (xDistance < -minSwipeDistance && !sidebar.classList.contains('-translate-x-full')) toggleSidebar(false);
-      }
+        if (yDistance > 60) return;
+        if (xDistance > 50 && touchStartX < 50) toggleSidebar(true);
+        else if (xDistance < -50 && !sidebar.classList.contains('-translate-x-full')) toggleSidebar(false);
+      }, { passive: true });
     }
 
     function calcInput(val) {
@@ -1096,6 +1065,11 @@
           document.getElementById('dola-preview-img').classList.remove('hidden');
           document.getElementById('dola-upload-placeholder').classList.add('opacity-0');
           document.getElementById('dola-analysis-status').classList.remove('hidden');
+          
+          // I-attach din sa main prompt preview bar
+          document.getElementById('attached-thumb').src = activeAttachment;
+          document.getElementById('attached-name').innerText = file.name;
+          document.getElementById('file-preview-bar').classList.remove('hidden');
         };
         reader.readAsDataURL(file);
       }
@@ -1107,6 +1081,7 @@
       document.getElementById('dola-preview-img').classList.add('hidden');
       document.getElementById('dola-upload-placeholder').classList.remove('opacity-0');
       document.getElementById('dola-analysis-status').classList.add('hidden');
+      document.getElementById('file-preview-bar').classList.add('hidden');
     }
 
     function processDolaAction() {
@@ -1116,7 +1091,7 @@
         else { showToast('Please enter text or URL for QR code.'); }
       } else {
         isVisionProcessing = true;
-        indicatorText.innerText = dolaMode === 'generate' ? "Generating image with Engine..." : "Analyzing homework with Core Engine...";
+        indicatorText.innerText = dolaMode === 'generate' ? "Generating/Editing image with Gemini Vision..." : "Analyzing homework with Core Engine...";
         closeDolaModal();
         submitPrompt(prompt);
       }
@@ -1152,6 +1127,8 @@
 
     function toggleFeature(flag) {
       featureFlags[flag] = !featureFlags[flag];
+      const btn = document.getElementById(`toggle-${flag.toLowerCase()}`);
+      if(btn) btn.classList.toggle('opacity-100', featureFlags[flag]);
       showToast(`${flag} is now ${featureFlags[flag] ? 'ON' : 'OFF'}`);
     }
 
@@ -1192,7 +1169,6 @@
       .catch(() => showToast('Failed to copy.'));
     }
 
-    // Dynamic Render Engine Fix
     function renderChatMessages() {
       if (bibleInterval) clearInterval(bibleInterval);
       chatViewport.innerHTML = '';
@@ -1218,14 +1194,13 @@
         return;
       }
 
-      activeChat.messages.forEach((msg, msgIdx) => {
+      activeChat.messages.forEach((msg) => {
         const wrap = document.createElement('div');
         const isUser = msg.role === 'user';
         wrap.className = `flex flex-col ${isUser ? 'items-end' : 'items-start'} my-2 relative group`;
         const bubble = document.createElement('div');
         bubble.className = `max-w-[92%] md:max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed relative ${isUser ? 'bg-indigo-600 text-white' : 'glass-card border border-white/10'}`;
         
-        // Pag-render ng HTML vs Text (Kusang magre-render ng buttons/links)
         if (!isUser && (msg.text.includes('<div') || msg.text.includes('<button'))) {
           bubble.innerHTML = msg.text;
         } else if (!isUser && typeof marked !== 'undefined') {
@@ -1234,7 +1209,6 @@
           bubble.innerText = msg.text;
         }
 
-        // Copy Text Button
         if (!isUser && !msg.text.includes('<button')) {
           const copyMsgBtn = document.createElement('button');
           copyMsgBtn.className = "mt-2 px-2.5 py-1 glass-card hover:bg-white/10 text-[10px] text-gray-300 rounded-lg flex items-center gap-1 border border-white/10 transition";
@@ -1243,7 +1217,6 @@
           bubble.appendChild(copyMsgBtn);
         }
 
-        // Code Action Bar Handler
         const codeBlocks = bubble.querySelectorAll('pre');
         codeBlocks.forEach((pre) => {
           const codeEl = pre.querySelector('code');
@@ -1293,7 +1266,7 @@
     }
 
     function toggleVoiceInput() {
-      if (!('webkitSpeechRecognition' in window)) return showToast('Not supported');
+      if (!('webkitSpeechRecognition' in window)) return showToast('Voice recognition not supported');
       const rec = new webkitSpeechRecognition();
       rec.lang = 'tl-PH';
       rec.start();
@@ -1301,7 +1274,7 @@
     }
 
     async function submitPrompt(overrideText = null) {
-      const text = overrideText || userInput.value.trim();
+      const text = overrideText !== null ? overrideText : userInput.value.trim();
       if (!text && !activeAttachment) return;
 
       const activeChat = chats.find(c => c.id === currentChatId);
@@ -1311,36 +1284,43 @@
       userInput.value = '';
       renderChatMessages();
 
-      if (isVisionProcessing || activeAttachment) {
-        statusIndicatorBar.classList.remove('hidden');
-      } else {
-        statusIndicatorBar.classList.add('hidden');
-      }
-
+      statusIndicatorBar.classList.remove('hidden');
       activeAbortController = new AbortController();
 
       try {
+        const payload = { 
+          prompt: text, 
+          history: activeChat.messages.slice(0, -1), 
+          image: activeAttachment,
+          mode: dolaMode,
+          webSearch: featureFlags.webSearch,
+          studyMode: featureFlags.studyMode,
+          model: document.getElementById('model-selector').value
+        };
+
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: activeAbortController.signal,
-          body: JSON.stringify({ 
-            prompt: text, 
-            history: activeChat.messages.slice(0, -1), 
-            image: activeAttachment,
-            mode: dolaMode,
-            model: document.getElementById('model-selector').value
-          })
+          body: JSON.stringify(payload)
         });
+        
         const data = await response.json();
 
-        activeChat.messages.push({ role: 'assistant', text: data.response || 'Walang tugon mula sa server.' });
+        if (response.ok) {
+          activeChat.messages.push({ role: 'assistant', text: data.response || 'Walang natanggap na tugon.' });
+        } else {
+          activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${data.error || 'Nagkaroon ng problema sa server.'}` });
+        }
       } catch (err) {
-        if (err.name !== 'AbortError') activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${err.message}` });
+        if (err.name !== 'AbortError') {
+          activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${err.message}` });
+        }
       } finally {
         removeAttachment();
         statusIndicatorBar.classList.add('hidden');
         isVisionProcessing = false;
+        dolaMode = 'analyze'; // Reset default
         saveChats();
         renderChatHistory();
         renderChatMessages();
