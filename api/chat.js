@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { prompt, model, history, image, webSearch, studyMode, strictTutoring, systemMode, mode } = req.body;
+    const { prompt, model, history, image, webSearch, studyMode, strictTutoring, mode } = req.body;
     const apiKey = getNextApiKey();
 
     if (!apiKey) {
@@ -26,45 +26,69 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 1. IMAGE GENERATION & EDITING ENGINE
+    // 1. DOLA-ACCURATE IMAGE GENERATION & EDITING ENGINE
     // ==========================================
     if (mode === 'generate') {
-      let finalPrompt = prompt || 'A creative artwork';
+      let finalPrompt = prompt || 'A detailed artwork';
 
-      // Kung may in-upload na larawan para i-edit, gagamitin ang Gemini Vision para i-analyze ito muna
+      // Kapag may in-upload na larawan para i-edit, gagamitin ang Vision AI 
+      // para i-analyze ang visual context at gumawa ng Dola-level descriptive prompt.
       if (image) {
         try {
           const base64Data = image.includes(',') ? image.split(',')[1] : image;
           const mimeType = image.includes(';') ? image.split(';')[0].split(':')[1] : 'image/jpeg';
 
+          const visionSystemInstruction = `
+            You are an expert AI Image Prompt Engineer like Dola AI.
+            Analyze the provided image and the user's edit instruction: "${prompt}".
+            Create an ultra-detailed, vivid text-to-image description that retains the original image's key visual elements (composition, pose, background, studio lighting, camera angle, color scheme, outfit) while accurately replacing or modifying the subject as requested.
+            Return ONLY the final detailed image generation prompt in English with no conversational filler.
+          `;
+
           const visionPayload = {
             contents: [{
               role: 'user',
               parts: [
-                { text: `Analyze this image in detail and describe how to modify it according to this request: "${prompt}". Provide a highly detailed image generation prompt describing the updated visual elements, style, subject, and composition directly in English. Do not add conversational fluff.` },
+                { text: visionSystemInstruction },
                 { inline_data: { mime_type: mimeType, data: base64Data } }
               ]
             }]
           };
 
-          const vRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(visionPayload)
-          });
-          const vData = await vRes.json();
-          const enrichedPrompt = vData.candidates?.[0]?.content?.parts?.[0]?.text;
+          // Fallback sequence para sa Vision Model
+          const visionModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+          let enrichedPrompt = null;
+
+          for (const vModel of visionModels) {
+            try {
+              const vRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${vModel}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(visionPayload)
+              });
+              const vData = await vRes.json();
+              const textResult = vData.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (textResult) {
+                enrichedPrompt = textResult.trim();
+                break;
+              }
+            } catch (err) {
+              console.warn(`Vision model ${vModel} failed:`, err.message);
+            }
+          }
+
           if (enrichedPrompt) {
-            finalPrompt = enrichedPrompt.trim();
+            finalPrompt = enrichedPrompt;
           }
         } catch (e) {
-          console.warn('Vision prompt enrichment failed, fallback to original text prompt:', e.message);
+          console.warn('Vision prompt enrichment failed, fallback to raw text prompt:', e.message);
         }
       }
 
       const encodedPrompt = encodeURIComponent(finalPrompt);
       const seed = Math.floor(Math.random() * 999999);
 
+      // Fast FLUX rendering via Pollinations API
       const img1080 = `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&seed=${seed}&width=1920&height=1080&nologo=true`;
       const img4K = `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux-realism&seed=${seed}&width=3840&height=2160&nologo=true`;
 
@@ -93,9 +117,9 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 2. TEXT & VISION TUTOR ENGINE
+    // 2. TEXT & VISION CHAT ENGINE
     // ==========================================
-    let systemInstruction = `Ikaw si Jampong AI, isang mahusay at matalinong academic tutor na dalubhasa sa lahat ng asignatura.`;
+    let systemInstruction = `Ikaw si Jampong AI, isang mahusay, matalino, at maaasahang assistant at academic tutor.`;
 
     if (strictTutoring) {
       systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang Socratic Method.`;
@@ -115,7 +139,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const userParts = [{ text: `${systemInstruction}\n\nUser Input: ${prompt || 'Analyze this image.'}` }];
+    const userParts = [{ text: `${systemInstruction}\n\nUser Input: ${prompt || 'Analyze this input.'}` }];
 
     if (image) {
       const base64Data = image.includes(',') ? image.split(',')[1] : image;
@@ -134,7 +158,7 @@ export default async function handler(req, res) {
       'gemini-3.5-flash',
       'gemini-3.1-pro-preview'
     ].includes(model) ? model : 'gemini-3.7-flash';
-
+    
     const fallbackModels = [
       preferredModel,
       'gemini-3.6-flash',
@@ -170,7 +194,7 @@ export default async function handler(req, res) {
     }
 
     if (lastError) {
-      throw new Error(`Nagkaroon ng error sa model: ${lastError}`);
+      throw new Error(`Error mula sa model: ${lastError}`);
     }
 
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Walang natanggap na sagot mula sa model.';
