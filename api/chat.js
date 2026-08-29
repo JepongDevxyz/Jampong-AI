@@ -9,7 +9,7 @@ function getNextApiKey() {
   return apiKey;
 }
 
-// Helper function para sa fetch na may strict timeout (hal. 8 seconds)
+// Helper function para sa fetch na may strict timeout
 async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -69,7 +69,6 @@ export default async function handler(req, res) {
             }]
           };
 
-          // Sabay-sabay na tawagin ang vision models para makuha ang pinakamabilis na sagot
           const visionModels = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
           const visionPromises = visionModels.map(async (vModel) => {
             const vRes = await fetchWithTimeout(
@@ -127,70 +126,57 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 2. ULTRA-FAST SSE STREAMING CHAT ENGINE
+    // 2. STABLE CHAT ENGINE (NO FUNCTION CRASH)
     // ==========================================
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-
     let systemInstruction = `Ikaw si Jampong AI, isang mahusay, matalino, at maaasahang assistant at academic tutor.`;
-if (strictTutoring) systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang Socratic Method.`;
-if (studyMode) systemInstruction += `\n[STUDY MODE ACTIVE]: Ibigay ang sagot sa anyo ng structured summary, bulleted points, at maikling 3-question quiz sa huli.`;
+    if (strictTutoring) systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang Socratic Method.`;
+    if (studyMode) systemInstruction += `\n[STUDY MODE ACTIVE]: Ibigay ang sagot sa anyo ng structured summary, bulleted points, at maikling 3-question quiz sa huli.`;
 
-const contents = [];
-if (Array.isArray(history)) {
-  history.forEach(item => {
-    contents.push({
-      role: item.role === 'user' ? 'user' : 'model',
-      parts: [{ text: item.text }]
-    });
-  });
-}
-
-const userParts = [{ text: `${systemInstruction}\n\nUser Input: ${prompt || 'Analyze this input.'}` }];
-if (image) {
-  const base64Data = image.includes(',') ? image.split(',')[1] : image;
-  const mimeType = image.includes(';') ? image.split(';')[0].split(':')[1] : 'image/jpeg';
-  userParts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
-}
-contents.push({ role: 'user', parts: userParts });
-
-const selectedModel = model || 'gemini-3.7-flash';
-const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
-
-const response = await fetch(apiUrl, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    contents,
-    generationConfig: {
-      thinkingConfig: { thinkingBudget: 0 }
-    },
-    ...(webSearch && { tools: [{ google_search: {} }] })
-  })
-});
-
-if (!response.ok) {
-  return res.status(response.status).json({ error: 'Failed to fetch from Gemini API' });
-}
-
-// Binabasa ang buong SSE stream sa backend at pinag-iisa ang text bago ibalik sa frontend
-const rawStream = await response.text();
-let fullText = '';
-
-const lines = rawStream.split('\n');
-for (const line of lines) {
-  if (line.startsWith('data:')) {
-    try {
-      const jsonStr = line.replace(/^data:\s*/, '').trim();
-      if (jsonStr === '[DONE]') continue;
-      const parsed = JSON.parse(jsonStr);
-      const textChunk = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      fullText += textChunk;
-    } catch (e) {
-      // Lagpasan ang anumang maling JSON line
+    const contents = [];
+    if (Array.isArray(history)) {
+      history.forEach(item => {
+        contents.push({
+          role: item.role === 'user' ? 'user' : 'model',
+          parts: [{ text: item.text }]
+        });
+      });
     }
+
+    const userParts = [{ text: `${systemInstruction}\n\nUser Input: ${prompt || 'Analyze this input.'}` }];
+    if (image) {
+      const base64Data = image.includes(',') ? image.split(',')[1] : image;
+      const mimeType = image.includes(';') ? image.split(';')[0].split(':')[1] : 'image/jpeg';
+      userParts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
+    }
+    contents.push({ role: 'user', parts: userParts });
+
+    const selectedModel = model || 'gemini-3.7-flash';
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents,
+        generationConfig: {
+          thinkingConfig: { thinkingBudget: 0 }
+        },
+        ...(webSearch && { tools: [{ google_search: {} }] })
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data.error?.message || 'Failed to fetch from Gemini API' });
+    }
+
+    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Walang natanggap na response.';
+
+    return res.status(200).json({ response: replyText });
+
+  } catch (err) {
+    console.error('Chat API Error:', err.message);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
 }
-
-return res.status(200).json({ response: fullText || 'Walang natanggap na response.' });
