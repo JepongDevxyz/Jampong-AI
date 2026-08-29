@@ -88,6 +88,8 @@
       overflow-x: auto !important;
       color: #38bdf8 !important;
       font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     .fade-transition {
@@ -100,11 +102,11 @@
   <!-- Toast Notification System -->
   <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-  <!-- LIVE CODE PREVIEW MODAL (BAGONG FEATURE) -->
+  <!-- LIVE CODE PREVIEW MODAL -->
   <div id="code-preview-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex flex-col p-3 md:p-6">
     <div class="glass-panel w-full max-w-5xl mx-auto h-full rounded-3xl flex flex-col overflow-hidden border border-indigo-500/30 shadow-2xl">
-      <div class="flex justify-between items-center px-4 py-3 border-b border-white/10 bg-black/20">
-        <h3 class="font-bold text-xs flex items-center gap-2 text-indigo-400"><i data-lucide="code" class="w-4 h-4"></i> Live Code Preview Sandbox</h3>
+      <div class="flex justify-between items-center px-4 py-3 border-b border-white/10 bg-black/25 shrink-0">
+        <h3 class="font-bold text-xs flex items-center gap-2 text-indigo-400"><i data-lucide="code" class="w-4 h-4"></i> LIVE INPUT</h3>
         <div class="flex items-center gap-2">
           <button onclick="runCodeInPreview()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1 transition">
             <i data-lucide="play" class="w-3.5 h-3.5"></i> Run / Refresh
@@ -112,18 +114,30 @@
           <button onclick="toggleModal('code-preview-modal', false)" class="p-1.5 hover:bg-white/10 rounded-xl transition"><i data-lucide="x" class="w-4 h-4"></i></button>
         </div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 flex-1 overflow-hidden">
-        <div class="flex flex-col border-r border-white/10 h-full">
-          <div class="bg-black/30 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase">Code Editor (HTML/CSS/JS)</div>
+
+      <!-- Main Resizable Grid Container -->
+      <div id="preview-grid-container" class="grid grid-cols-1 md:grid-cols-2 flex-1 overflow-hidden relative" style="grid-template-rows: 1fr 10px 1fr;">
+        
+        <!-- Code Editor Section -->
+        <div id="editor-pane" class="flex flex-col md:border-r border-b md:border-b-0 border-white/10 h-full overflow-hidden">
+          <div class="bg-black/30 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase shrink-0">Code Editor (HTML/CSS/JS)</div>
           <textarea id="preview-code-input" class="w-full flex-1 bg-black/50 text-sky-300 font-mono p-3 text-xs outline-none resize-none no-scrollbar"></textarea>
         </div>
-        <div class="flex flex-col h-full bg-white">
-          <div class="bg-gray-200 px-3 py-1.5 text-[10px] font-bold text-gray-700 uppercase flex justify-between items-center">
+
+        <!-- RESIZABLE HANDLE BAR -->
+        <div id="resize-handle" class="flex md:hidden items-center justify-center bg-indigo-600/20 hover:bg-indigo-600/40 cursor-row-resize py-1 transition z-20 shrink-0">
+          <div class="w-12 h-1.5 bg-indigo-400/80 rounded-full shadow-lg flex items-center justify-center"></div>
+        </div>
+
+        <!-- Live Output Preview Section -->
+        <div id="output-pane" class="flex flex-col h-full bg-white overflow-hidden">
+          <div class="bg-gray-200 px-3 py-1.5 text-[10px] font-bold text-gray-700 uppercase flex justify-between items-center shrink-0">
             <span>Live Output Preview</span>
-            <span class="text-emerald-600 font-semibold text-[9px]">● Active Sandbox</span>
+            <span class="text-emerald-600 font-semibold text-[9px]">● Jampong AI</span>
           </div>
           <iframe id="preview-iframe" class="w-full flex-1 border-none"></iframe>
         </div>
+
       </div>
     </div>
   </div>
@@ -288,7 +302,7 @@
             <i data-lucide="wand-2" class="w-5 h-5"></i>
           </div>
           <div>
-            <h2 class="font-bold text-sm text-white flex items-center gap-1.5">Jampong AI </h2>
+            <h2 class="font-bold text-sm text-white flex items-center gap-1.5">Jampong AI</h2>
             <p class="text-[10px] text-gray-400">Vision, Image Generator & QR Code</p>
           </div>
         </div>
@@ -381,12 +395,12 @@
       </div>
       <div class="space-y-3 text-xs">
         <div class="p-3 glass-card rounded-xl space-y-1">
-          <p class="text-indigo-600 dark:text-indigo-400 font-semibold">System v4.9 Core Optimized </p>
+          <p class="text-indigo-600 dark:text-indigo-400 font-semibold">System v4.9 Core Optimized</p>
           <p class="opacity-70">Developer: <strong>Jay-Ar Lee Espiritu</strong></p>
-          <p class="opacity-50 text-[10px]">Engine: JepongDevxyz AI - Gemini 3.6 Flash </p>
+          <p class="opacity-50 text-[10px]">Engine: JepongDevxyz AI - Gemini 3.7 Flash</p>
         </div>
         <button onclick="clearAllHistory()" class="w-full py-2 bg-red-500/20 hover:bg-red-500/30 text-red-500 dark:text-red-300 rounded-xl font-medium border border-red-500/30 transition">
-          Clear LocalStorage Chat History
+          Clear Chat History
         </button>
       </div>
     </div>
@@ -506,7 +520,7 @@
                 <i data-lucide="qr-code" class="w-4 h-4"></i>
               </button>
 
-              <button onclick="openCodePreviewSandbox()" title="Open Live Code Preview Sandbox" class="p-2 bg-sky-600/15 hover:bg-sky-600/30 text-sky-500 dark:text-sky-400 rounded-xl transition border border-sky-500/30 flex items-center gap-1">
+              <button onclick="openCodePreviewSandbox()" title="Open Live Preview" class="p-2 bg-sky-600/15 hover:bg-sky-600/30 text-sky-500 dark:text-sky-400 rounded-xl transition border border-sky-500/30 flex items-center gap-1">
                 <i data-lucide="code" class="w-4 h-4"></i>
               </button>
 
@@ -541,6 +555,13 @@
   </div>
 
   <script>
+    if (typeof marked !== 'undefined') {
+      marked.setOptions({
+        gfm: true,
+        breaks: true
+      });
+    }
+
     const bibleVerses = [
       { text: "For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you, plans to give you hope and a future.", ref: "Jeremiah 29:11" },
       { text: "I can do all things through Christ who strengthens me.", ref: "Philippians 4:13" },
@@ -574,8 +595,7 @@
       }, 5000);
     }
 
-    // Live Code Preview Sandbox Handler
-    function openCodePreviewSandbox(initialCode = '<h1 style="font-family:sans-serif; text-align:center; margin-top:20vh; color:#4f46e5;">Hello Jampong AI! ✨</h1>') {
+    function openCodePreviewSandbox(initialCode = '<h1 style="font-family:sans-serif; text-align:center; margin-top:20vh; color:#4f46e5;">Welcome to Code Preview, I am Jampong AI! ✨</h1>') {
       document.getElementById('preview-code-input').value = initialCode;
       toggleModal('code-preview-modal', true);
       runCodeInPreview();
@@ -589,6 +609,51 @@
       doc.write(code);
       doc.close();
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const handle = document.getElementById('resize-handle');
+      const container = document.getElementById('preview-grid-container');
+
+      let isDragging = false;
+
+      if(handle && container) {
+        handle.addEventListener('touchstart', (e) => {
+          isDragging = true;
+          e.preventDefault();
+        }, { passive: false });
+
+        handle.addEventListener('mousedown', (e) => {
+          isDragging = true;
+          e.preventDefault();
+        });
+
+        window.addEventListener('touchmove', (e) => {
+          if (!isDragging) return;
+          const clientY = e.touches[0].clientY;
+          adjustPanes(clientY);
+        }, { passive: false });
+
+        window.addEventListener('mousemove', (e) => {
+          if (!isDragging) return;
+          adjustPanes(e.clientY);
+        });
+
+        window.addEventListener('touchend', () => { isDragging = false; });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+      }
+
+      function adjustPanes(yPos) {
+        const rect = container.getBoundingClientRect();
+        const offsetY = yPos - rect.top;
+        const totalHeight = rect.height;
+        
+        let percentage = (offsetY / totalHeight) * 100;
+        if (percentage < 15) percentage = 15;
+        if (percentage > 85) percentage = 85;
+
+        container.style.gridTemplateRows = `${percentage}fr 10px ${100 - percentage}fr`;
+      }
+    });
 
     async function searchMerriamWebster() {
       const q = document.getElementById('dict-search').value.trim().toLowerCase();
@@ -1121,7 +1186,13 @@
         wrap.className = `flex flex-col ${isUser ? 'items-end' : 'items-start'} my-2`;
         const bubble = document.createElement('div');
         bubble.className = `max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed ${isUser ? 'bg-indigo-600 text-white' : 'glass-card'}`;
-        bubble.innerHTML = isUser ? msg.text : marked.parse(msg.text);
+        
+        let parsedText = msg.text;
+        if (!isUser && typeof marked !== 'undefined') {
+          parsedText = marked.parse(msg.text);
+        }
+        
+        bubble.innerHTML = isUser ? msg.text : parsedText;
         wrap.appendChild(bubble);
         chatViewport.appendChild(wrap);
       });
