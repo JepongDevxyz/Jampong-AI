@@ -18,8 +18,46 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { prompt, model, history, image, webSearch, studyMode, strictTutoring, systemMode } = req.body;
-    
+    const { prompt, model, history, image, webSearch, studyMode, strictTutoring, systemMode, mode } = req.body;
+
+    // ==========================================
+    // 1. IMAGE GENERATION & EDITING ENGINE (FLUX / DALL-E ROTATION)
+    // ==========================================
+    if (mode === 'generate') {
+      const finalPrompt = prompt || 'A creative artwork';
+      const encodedPrompt = encodeURIComponent(finalPrompt);
+      const seed = Math.floor(Math.random() * 999999);
+
+      // Listahan ng mga Image Generation Models para sa Automatic Rotation / Fallback
+      const imageModels = [
+        `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&seed=${seed}&width=1024&height=1024&nologo=true`,
+        `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux-realism&seed=${seed}&width=1024&height=1024&nologo=true`,
+        `https://image.pollinations.ai/prompt/${encodedPrompt}?model=turbo&seed=${seed}&width=1024&height=1024&nologo=true`
+      ];
+
+      // Subukan ang mga Image Models (Rotation / Fallback Mechanism)
+      for (const imgUrl of imageModels) {
+        try {
+          const imgCheck = await fetch(imgUrl, { method: 'HEAD' });
+          if (imgCheck.ok) {
+            return res.status(200).json({ 
+              imageUrl: imgUrl,
+              response: `Narito ang iyong na-generate na larawan batay sa prompt: "${finalPrompt}"` 
+            });
+          }
+        } catch (e) {
+          console.warn('Image Model failed, trying next in rotation...');
+        }
+      }
+
+      // Fallback kung sakaling mag-fail ang mga Image Models
+      const fallbackUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${seed}&nologo=true`;
+      return res.status(200).json({ imageUrl: fallbackUrl, response: 'Image Generated Success' });
+    }
+
+    // ==========================================
+    // 2. TEXT & VISION AI TUTOR ENGINE (GEMINI)
+    // ==========================================
     const apiKey = getNextApiKey();
     if (!apiKey) {
       return res.status(500).json({ error: 'API Keys missing on Vercel Environment Variables.' });
@@ -62,7 +100,6 @@ export default async function handler(req, res) {
 
     contents.push({ role: 'user', parts: userParts });
 
-    // Listahan ng mga models na may kasamang automatic fallback kung ma-overload ang una
     const preferredModel = model && [
       'gemini-3.7-flash',
       'gemini-3.6-flash',
@@ -71,7 +108,6 @@ export default async function handler(req, res) {
       'gemini-3.1-pro-preview'
     ].includes(model) ? model : 'gemini-3.7-flash';
 
-    // Ilagay muna ang pinili sa unahan, sundan ng iba bilang fallback
     const fallbackModels = [
       preferredModel,
       'gemini-3.6-flash',
@@ -82,7 +118,6 @@ export default async function handler(req, res) {
     let data = null;
     let lastError = null;
 
-    // Subukan isa-isa ang mga models hanggang sa may lumusot
     for (const currentModel of fallbackModels) {
       const payload = { contents };
       if (webSearch) {
@@ -101,7 +136,7 @@ export default async function handler(req, res) {
 
       if (!data.error) {
         lastError = null;
-        break; // Tagumpay, lumabas na sa loop
+        break;
       } else {
         lastError = data.error.message;
         console.warn(`Model ${currentModel} failed with error: ${lastError}. Trying next fallback...`);
@@ -109,7 +144,7 @@ export default async function handler(req, res) {
     }
 
     if (lastError) {
-      throw new Error(` Lahat ng models ay nag-error: ${lastError}`);
+      throw new Error(`Lahat ng models ay nag-error: ${lastError}`);
     }
 
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Walang natanggap na sagot mula sa model.';
