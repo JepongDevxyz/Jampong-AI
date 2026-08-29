@@ -21,38 +21,40 @@ export default async function handler(req, res) {
     const { prompt, model, history, image, webSearch, studyMode, strictTutoring, systemMode, mode } = req.body;
 
     // ==========================================
-    // 1. IMAGE GENERATION & EDITING ENGINE (FLUX / DALL-E ROTATION)
+    // 1. IMAGE GENERATION ENGINE (CLICKABLE & 4K/1080P DOWNLOAD)
     // ==========================================
     if (mode === 'generate') {
       const finalPrompt = prompt || 'A creative artwork';
       const encodedPrompt = encodeURIComponent(finalPrompt);
       const seed = Math.floor(Math.random() * 999999);
 
-      // Listahan ng mga Image Generation Models para sa Automatic Rotation / Fallback
-      const imageModels = [
-        `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&seed=${seed}&width=1024&height=1024&nologo=true`,
-        `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux-realism&seed=${seed}&width=1024&height=1024&nologo=true`,
-        `https://image.pollinations.ai/prompt/${encodedPrompt}?model=turbo&seed=${seed}&width=1024&height=1024&nologo=true`
-      ];
+      // Stable direct endpoints
+      const img1080 = `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&seed=${seed}&width=1920&height=1080&nologo=true`;
+      const img4K = `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux-realism&seed=${seed}&width=3840&height=2160&nologo=true`;
 
-      // Subukan ang mga Image Models (Rotation / Fallback Mechanism)
-      for (const imgUrl of imageModels) {
-        try {
-          const imgCheck = await fetch(imgUrl, { method: 'HEAD' });
-          if (imgCheck.ok) {
-            return res.status(200).json({ 
-              imageUrl: imgUrl,
-              response: `Narito ang iyong na-generate na larawan batay sa prompt: "${finalPrompt}"` 
-            });
-          }
-        } catch (e) {
-          console.warn('Image Model failed, trying next in rotation...');
-        }
-      }
+      // Formatted card with clickable image & download options
+      const formattedResponse = `
+        <div class="flex flex-col gap-3 my-1">
+          <p class="text-emerald-400 font-medium">Narito ang iyong na-generate na larawan batay sa prompt: "${finalPrompt}"</p>
+          <div class="relative group rounded-xl overflow-hidden border border-white/20 bg-black/40">
+            <a href="${img4K}" target="_blank" rel="noopener noreferrer" class="block cursor-pointer">
+              <img src="${img1080}" alt="${finalPrompt}" class="w-full h-auto object-cover hover:scale-[1.02] transition duration-300" />
+            </a>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <a href="${img4K}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-400 hover:underline flex items-center gap-1 font-medium">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Tignan sa Full Resolution
+            </a>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-gray-400">Download:</span>
+              <button onclick="downloadImageBlob('${img1080}', '1080p')" class="px-2.5 py-1 text-xs font-semibold bg-slate-800 hover:bg-indigo-600 rounded-md border border-slate-700 transition">1080p</button>
+              <button onclick="downloadImageBlob('${img4K}', '4k')" class="px-2.5 py-1 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 rounded-md transition">4K</button>
+            </div>
+          </div>
+        </div>
+      `;
 
-      // Fallback kung sakaling mag-fail ang mga Image Models
-      const fallbackUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?seed=${seed}&nologo=true`;
-      return res.status(200).json({ imageUrl: fallbackUrl, response: 'Image Generated Success' });
+      return res.status(200).json({ response: formattedResponse, imageUrl: img4K });
     }
 
     // ==========================================
