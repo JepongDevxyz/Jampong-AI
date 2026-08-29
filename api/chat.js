@@ -106,14 +106,16 @@ export default async function handler(req, res) {
       return res.status(200).json({ response: formattedResponse, imageUrl: img4K });
     }
 
-    // ULTRA-FAST STREAMING CHAT MODE
+    // ==========================================
+    // 2. ULTRA-FAST SSE STREAMING CHAT ENGINE
+    // ==========================================
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
 
-    let systemInstruction = `Ikaw si Jampong AI, isang mabilis at matalinong assistant.`;
-    if (strictTutoring) systemInstruction += `\n[STRICT TUTORING]: Gabayan ang estudyante gamit ang Socratic Method.`;
-    if (studyMode) systemInstruction += `\n[STUDY MODE]: Ibigay ang sagot sa anyo ng structured summary.`;
+    let systemInstruction = `Ikaw si Jampong AI, isang mahusay, matalino, at maaasahang assistant at academic tutor.`;
+    if (strictTutoring) systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang Socratic Method.`;
+    if (studyMode) systemInstruction += `\n[STUDY MODE ACTIVE]: Ibigay ang sagot sa anyo ng structured summary, bulleted points, at maikling 3-question quiz sa huli.`;
 
     const contents = [];
     if (Array.isArray(history)) {
@@ -133,24 +135,38 @@ export default async function handler(req, res) {
     }
     contents.push({ role: 'user', parts: userParts });
 
-    const selectedModel = model || 'gemini-3.7-flash';
+    // Piliin ang model at fallback
+    const selectedModel = model || 'gemini-2.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+    // Clean payload para iwas crash sa 3.x models
+    const payload = { contents };
+    if (webSearch) {
+      payload.tools = [{ google_search: {} }];
+    }
 
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        ...(webSearch && { tools: [{ google_search: {} }] })
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
-      res.write(`data: ${JSON.stringify({ error: 'Failed to fetch from Gemini API' })}\n\n`);
+      const errText = await response.text();
+      let errorMessage = 'Failed to fetch from Gemini API';
+      try {
+        const parsedErr = JSON.parse(errText);
+        errorMessage = parsedErr.error?.message || errorMessage;
+      } catch (e) {
+        errorMessage = errText || errorMessage;
+      }
+      
+      res.write(`data: ${JSON.stringify({ error: `Gemini API Error (${response.status}): ${errorMessage}` })}\n\n`);
       return res.end();
     }
 
     const reader = response.body.getReader();
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
