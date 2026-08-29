@@ -134,63 +134,63 @@ export default async function handler(req, res) {
     res.setHeader('Connection', 'keep-alive');
 
     let systemInstruction = `Ikaw si Jampong AI, isang mahusay, matalino, at maaasahang assistant at academic tutor.`;
-    if (strictTutoring) systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang Socratic Method.`;
-    if (studyMode) systemInstruction += `\n[STUDY MODE ACTIVE]: Ibigay ang sagot sa anyo ng structured summary, bulleted points, at maikling 3-question quiz sa huli.`;
+if (strictTutoring) systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang Socratic Method.`;
+if (studyMode) systemInstruction += `\n[STUDY MODE ACTIVE]: Ibigay ang sagot sa anyo ng structured summary, bulleted points, at maikling 3-question quiz sa huli.`;
 
-    const contents = [];
-    if (Array.isArray(history)) {
-      history.forEach(item => {
-        contents.push({
-          role: item.role === 'user' ? 'user' : 'model',
-          parts: [{ text: item.text }]
-        });
-      });
-    }
-
-    const userParts = [{ text: `${systemInstruction}\n\nUser Input: ${prompt || 'Analyze this input.'}` }];
-    if (image) {
-      const base64Data = image.includes(',') ? image.split(',')[1] : image;
-      const mimeType = image.includes(';') ? image.split(';')[0].split(':')[1] : 'image/jpeg';
-      userParts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
-    }
-    contents.push({ role: 'user', parts: userParts });
-
-    const selectedModel = model || 'gemini-3.7-flash';
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        generationConfig: {
-          thinkingConfig: { thinkingBudget: 0 }
-        },
-        ...(webSearch && { tools: [{ google_search: {} }] })
-      })
+const contents = [];
+if (Array.isArray(history)) {
+  history.forEach(item => {
+    contents.push({
+      role: item.role === 'user' ? 'user' : 'model',
+      parts: [{ text: item.text }]
     });
+  });
+}
 
-    if (!response.ok) {
-      res.write(`data: ${JSON.stringify({ error: 'Failed to fetch from Gemini API' })}\n\n`);
-      return res.end();
+const userParts = [{ text: `${systemInstruction}\n\nUser Input: ${prompt || 'Analyze this input.'}` }];
+if (image) {
+  const base64Data = image.includes(',') ? image.split(',')[1] : image;
+  const mimeType = image.includes(';') ? image.split(';')[0].split(':')[1] : 'image/jpeg';
+  userParts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
+}
+contents.push({ role: 'user', parts: userParts });
+
+const selectedModel = model || 'gemini-3.7-flash';
+const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+const response = await fetch(apiUrl, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    contents,
+    generationConfig: {
+      thinkingConfig: { thinkingBudget: 0 }
+    },
+    ...(webSearch && { tools: [{ google_search: {} }] })
+  })
+});
+
+if (!response.ok) {
+  return res.status(response.status).json({ error: 'Failed to fetch from Gemini API' });
+}
+
+// Binabasa ang buong SSE stream sa backend at pinag-iisa ang text bago ibalik sa frontend
+const rawStream = await response.text();
+let fullText = '';
+
+const lines = rawStream.split('\n');
+for (const line of lines) {
+  if (line.startsWith('data:')) {
+    try {
+      const jsonStr = line.replace(/^data:\s*/, '').trim();
+      if (jsonStr === '[DONE]') continue;
+      const parsed = JSON.parse(jsonStr);
+      const textChunk = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      fullText += textChunk;
+    } catch (e) {
+      // Lagpasan ang anumang maling JSON line
     }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      
-      const chunk = decoder.decode(value, { stream: true });
-      res.write(chunk);
-    }
-
-    res.end();
-
-  } catch (err) {
-    console.error('Streaming Handler Error:', err.message);
-    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-    res.end();
   }
 }
+
+return res.status(200).json({ response: fullText || 'Walang natanggap na response.' });
