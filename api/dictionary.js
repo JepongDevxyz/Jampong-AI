@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.MERRIAM_WEBSTER_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'Merriam-Webster API key missing in Vercel.' });
+    return res.status(500).json({ error: 'Merriam-Webster API key missing in Vercel environment variables.' });
   }
 
   const apiUrl = `https://www.dictionaryapi.com/api/v3/references/collegiate/json/${encodeURIComponent(word)}?key=${apiKey}`;
