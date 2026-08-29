@@ -72,18 +72,6 @@
       color: #1e293b !important;
     }
 
-    .light-mode .glass-card.bg-amber-950\/10 {
-      background: rgba(255, 255, 255, 0.9) !important;
-      border-color: rgba(217, 119, 6, 0.3) !important;
-    }
-
-    .light-mode .text-amber-400,
-    .light-mode .text-amber-200,
-    .light-mode .text-amber-300,
-    .light-mode .text-amber-500 {
-      color: #b45309 !important;
-    }
-
     .light-mode select option {
       background-color: #ffffff;
       color: #0f172a;
@@ -111,6 +99,34 @@
 
   <!-- Toast Notification System -->
   <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- LIVE CODE PREVIEW MODAL (BAGONG FEATURE) -->
+  <div id="code-preview-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex flex-col p-3 md:p-6">
+    <div class="glass-panel w-full max-w-5xl mx-auto h-full rounded-3xl flex flex-col overflow-hidden border border-indigo-500/30 shadow-2xl">
+      <div class="flex justify-between items-center px-4 py-3 border-b border-white/10 bg-black/20">
+        <h3 class="font-bold text-xs flex items-center gap-2 text-indigo-400"><i data-lucide="code" class="w-4 h-4"></i> Live Code Preview Sandbox</h3>
+        <div class="flex items-center gap-2">
+          <button onclick="runCodeInPreview()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1 transition">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i> Run / Refresh
+          </button>
+          <button onclick="toggleModal('code-preview-modal', false)" class="p-1.5 hover:bg-white/10 rounded-xl transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 flex-1 overflow-hidden">
+        <div class="flex flex-col border-r border-white/10 h-full">
+          <div class="bg-black/30 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase">Code Editor (HTML/CSS/JS)</div>
+          <textarea id="preview-code-input" class="w-full flex-1 bg-black/50 text-sky-300 font-mono p-3 text-xs outline-none resize-none no-scrollbar"></textarea>
+        </div>
+        <div class="flex flex-col h-full bg-white">
+          <div class="bg-gray-200 px-3 py-1.5 text-[10px] font-bold text-gray-700 uppercase flex justify-between items-center">
+            <span>Live Output Preview</span>
+            <span class="text-emerald-600 font-semibold text-[9px]">● Active Sandbox</span>
+          </div>
+          <iframe id="preview-iframe" class="w-full flex-1 border-none"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- SCIENTIFIC CALCULATOR MODAL -->
   <div id="calculator-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
@@ -181,7 +197,6 @@
         <button onclick="closeExamModal()" class="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
 
-      <!-- Exam Setup View -->
       <div id="exam-setup-view" class="space-y-3 text-xs">
         <div>
           <label class="block text-gray-300 font-semibold mb-1">Subject / Custom Topic</label>
@@ -206,7 +221,6 @@
         </button>
       </div>
 
-      <!-- Exam Active View -->
       <div id="exam-active-view" class="hidden flex-1 flex flex-col gap-3 overflow-hidden">
         <div class="flex items-center justify-between bg-amber-500/20 border border-amber-500/40 p-2.5 rounded-xl text-xs">
           <span class="font-bold text-amber-400" id="exam-current-topic">Topic</span>
@@ -216,7 +230,6 @@
         <button id="exam-submit-btn" onclick="submitExam()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition shrink-0">Submit Exam Now</button>
       </div>
 
-      <!-- Exam Results View -->
       <div id="exam-results-view" class="hidden flex-1 flex flex-col gap-3 overflow-y-auto no-scrollbar text-xs">
         <div class="text-center glass-card p-4 rounded-2xl border border-indigo-500/30">
           <p class="text-gray-400">Your Final Score:</p>
@@ -381,7 +394,7 @@
 
   <!-- App Main Layout -->
   <div class="flex h-full w-full overflow-hidden relative">
-    <div id="drawer-backdrop" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden" onclick="toggleSidebar(false)"></div>
+    <div id="drawer-backdrop" class="fixed inset-0 bg-black/50 z-30 md:hidden hidden" onclick="toggleSidebar(false)"></div>
 
     <!-- Sidebar -->
     <aside id="sidebar" class="absolute md:relative z-40 h-full w-72 glass-panel transition-transform duration-300 transform -translate-x-full md:translate-x-0 flex flex-col justify-between shrink-0">
@@ -428,7 +441,6 @@
 
     <!-- Main Dynamic Chat Area -->
     <main class="flex-1 flex flex-col h-full w-full min-w-0 overflow-hidden relative">
-      <!-- HEADER BAR -->
       <header class="h-14 glass-panel shrink-0 flex items-center justify-between px-3 md:px-5 z-20 gap-2">
         <div class="flex items-center gap-2 min-w-0 flex-1">
           <button onclick="toggleSidebar(true)" class="md:hidden p-2 glass-card rounded-xl shrink-0">
@@ -455,7 +467,6 @@
         </div>
       </header>
 
-      <!-- Dola Status Indicator -->
       <div id="status-indicator-bar" class="hidden shrink-0 px-4 py-1.5 bg-indigo-600/20 border-b border-indigo-500/30 flex items-center justify-between text-xs">
         <span class="flex items-center gap-2 text-indigo-600 dark:text-indigo-300 font-medium">
           <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
@@ -493,6 +504,10 @@
 
               <button onclick="openDolaModal('qr')" title="QR Code Engine" class="p-2 bg-emerald-600/15 hover:bg-emerald-600/30 text-emerald-600 dark:text-emerald-300 rounded-xl transition border border-emerald-500/30 flex items-center gap-1 text-xs font-semibold">
                 <i data-lucide="qr-code" class="w-4 h-4"></i>
+              </button>
+
+              <button onclick="openCodePreviewSandbox()" title="Open Live Code Preview Sandbox" class="p-2 bg-sky-600/15 hover:bg-sky-600/30 text-sky-500 dark:text-sky-400 rounded-xl transition border border-sky-500/30 flex items-center gap-1">
+                <i data-lucide="code" class="w-4 h-4"></i>
               </button>
 
               <button onclick="toggleModal('exam-modal', true)" title="Interactive Exam Generator" class="p-2 bg-amber-500/15 hover:bg-amber-500/30 text-amber-500 dark:text-amber-400 rounded-xl transition border border-amber-500/30">
@@ -559,6 +574,22 @@
       }, 5000);
     }
 
+    // Live Code Preview Sandbox Handler
+    function openCodePreviewSandbox(initialCode = '<h1 style="font-family:sans-serif; text-align:center; margin-top:20vh; color:#4f46e5;">Hello Jampong AI! ✨</h1>') {
+      document.getElementById('preview-code-input').value = initialCode;
+      toggleModal('code-preview-modal', true);
+      runCodeInPreview();
+    }
+
+    function runCodeInPreview() {
+      const code = document.getElementById('preview-code-input').value;
+      const iframe = document.getElementById('preview-iframe');
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      doc.write(code);
+      doc.close();
+    }
+
     async function searchMerriamWebster() {
       const q = document.getElementById('dict-search').value.trim().toLowerCase();
       const container = document.getElementById('dict-results');
@@ -570,13 +601,10 @@
       try {
         const res = await fetch(`/api/dictionary?word=${encodeURIComponent(q)}`);
         const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || 'May naganap na error sa server.');
-        }
+        if (!res.ok) throw new Error(data.error || 'May naganap na error sa server.');
 
         if(!data || data.length === 0 || typeof data[0] === 'string') {
-          container.innerHTML = `<p class="text-red-400 text-center py-4">Walang nakitang eksaktong kahulugan. Mga Mungkahi: ${Array.isArray(data) ? data.slice(0,5).join(', ') : 'Wala'}</p>`;
+          container.innerHTML = `<p class="text-red-400 text-center py-4">Walang nakitang kahulugan. Mga Mungkahi: ${Array.isArray(data) ? data.slice(0,5).join(', ') : 'Wala'}</p>`;
           return;
         }
 
@@ -791,9 +819,7 @@
       const spokenWords = cleanSpoken.split(' ');
 
       let matches = 0;
-      targetWords.forEach(w => {
-        if (spokenWords.includes(w)) matches++;
-      });
+      targetWords.forEach(w => { if (spokenWords.includes(w)) matches++; });
 
       const accuracy = Math.round((matches / targetWords.length) * 100);
       const feedbackBox = document.getElementById('coach-feedback-box');
@@ -842,7 +868,6 @@
       let touchStartY = 0;
       let touchEndX = 0;
       let touchEndY = 0;
-
       const minSwipeDistance = 50; 
       const maxVerticalOffset = 60; 
 
@@ -860,15 +885,9 @@
       function handleSwipeGesture() {
         const xDistance = touchEndX - touchStartX;
         const yDistance = Math.abs(touchEndY - touchStartY);
-
         if (yDistance > maxVerticalOffset) return;
-
-        if (xDistance > minSwipeDistance && touchStartX < 50) {
-          toggleSidebar(true);
-        }
-        else if (xDistance < -minSwipeDistance && !sidebar.classList.contains('-translate-x-full')) {
-          toggleSidebar(false);
-        }
+        if (xDistance > minSwipeDistance && touchStartX < 50) toggleSidebar(true);
+        else if (xDistance < -minSwipeDistance && !sidebar.classList.contains('-translate-x-full')) toggleSidebar(false);
       }
     }
 
@@ -882,11 +901,7 @@
 
     function calcSolve() {
       const display = document.getElementById('calc-display');
-      try {
-        display.value = eval(display.value);
-      } catch (e) {
-        display.value = 'Error';
-      }
+      try { display.value = eval(display.value); } catch (e) { display.value = 'Error'; }
     }
 
     function openDolaModal(initialMode = 'analyze') { 
@@ -999,17 +1014,12 @@
 
     function processDolaAction() {
       const prompt = document.getElementById('dola-prompt-text').value.trim();
-      
       if (dolaMode === 'qr') {
-        if (prompt) {
-          generateQRCode(prompt);
-          closeDolaModal();
-        } else {
-          showToast('Please enter text or URL for QR code.');
-        }
+        if (prompt) { generateQRCode(prompt); closeDolaModal(); } 
+        else { showToast('Please enter text or URL for QR code.'); }
       } else {
         statusIndicatorBar.classList.remove('hidden');
-        indicatorText.innerText = dolaMode === 'generate' ? "Generating image with Dola Engine..." : "Analyzing homework with Vision Engine...";
+        indicatorText.innerText = dolaMode === 'generate' ? "Generating image with Imagen Engine..." : "Analyzing homework with Core Engine...";
         closeDolaModal();
         submitPrompt(prompt);
       }
