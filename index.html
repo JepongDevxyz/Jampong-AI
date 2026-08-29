@@ -365,7 +365,7 @@
           <span id="dola-prompt-label">Instructions / Text Payload</span>
           <span class="text-[9px] text-indigo-500 font-bold" id="dola-prompt-hint">Auto-analyzes if empty in Vision Mode</span>
         </label>
-        <textarea id="dola-prompt-text" rows="2" placeholder="Ex: https://facebook.com or Change background to parish..." class="w-full glass-card p-2.5 rounded-xl text-xs outline-none focus:border-indigo-400/50 resize-none border border-white/10 placeholder-gray-400"></textarea>
+        <textarea id="dola-prompt-text" rows="2" placeholder="Ex: https://facebook.com or Change duck into rat with money..." class="w-full glass-card p-2.5 rounded-xl text-xs outline-none focus:border-indigo-400/50 resize-none border border-white/10 placeholder-gray-400" oninput="autoDetectImageEditIntent(this.value)"></textarea>
       </div>
 
       <button id="qr-cam-btn" onclick="startQRCameraScanner()" class="hidden w-full py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-600 dark:text-emerald-200 text-xs rounded-xl font-medium transition flex items-center justify-center gap-2">
@@ -935,6 +935,15 @@
       initSwipeGestures();
     });
 
+    function autoDetectImageEditIntent(value) {
+      if (!value) return;
+      const lower = value.toLowerCase();
+      const editKeywords = ['change', 'edit', 'convert', 'replace', 'make it', 'turn into', 'generate', 'palitan', 'gawan'];
+      if (editKeywords.some(kw => lower.includes(kw)) && dolaMode !== 'generate') {
+        setDolaMode('generate');
+      }
+    }
+
     function initSwipeGestures() {
       let touchStartX = 0;
       let touchStartY = 0;
@@ -998,7 +1007,7 @@
 
       if (mode === 'generate') {
         generateBtn.className = "py-1.5 font-semibold rounded-lg bg-purple-600 text-white transition flex items-center justify-center gap-1";
-        document.getElementById('dola-prompt-label').innerText = "Image Generation Prompt";
+        document.getElementById('dola-prompt-label').innerText = "Image Generation / Edit Prompt";
         document.getElementById('dola-prompt-hint').innerText = "Describe what you want to create or edit";
         document.getElementById('dola-upload-title').innerText = "Upload Reference Image (Optional)";
         document.getElementById('dola-btn-text').innerText = "Generate / Edit Image";
@@ -1066,7 +1075,6 @@
           document.getElementById('dola-upload-placeholder').classList.add('opacity-0');
           document.getElementById('dola-analysis-status').classList.remove('hidden');
           
-          // I-attach din sa main prompt preview bar
           document.getElementById('attached-thumb').src = activeAttachment;
           document.getElementById('attached-name').innerText = file.name;
           document.getElementById('file-preview-bar').classList.remove('hidden');
@@ -1201,7 +1209,7 @@
         const bubble = document.createElement('div');
         bubble.className = `max-w-[92%] md:max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed relative ${isUser ? 'bg-indigo-600 text-white' : 'glass-card border border-white/10'}`;
         
-        if (!isUser && (msg.text.includes('<div') || msg.text.includes('<button'))) {
+        if (!isUser && (msg.text.includes('<div') || msg.text.includes('<button') || msg.text.includes('<img'))) {
           bubble.innerHTML = msg.text;
         } else if (!isUser && typeof marked !== 'undefined') {
           bubble.innerHTML = marked.parse(msg.text);
