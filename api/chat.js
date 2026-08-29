@@ -19,23 +19,58 @@ export default async function handler(req, res) {
 
   try {
     const { prompt, model, history, image, webSearch, studyMode, strictTutoring, systemMode, mode } = req.body;
+    const apiKey = getNextApiKey();
+
+    if (!apiKey) {
+      return res.status(500).json({ error: 'API Keys missing on Vercel Environment Variables.' });
+    }
 
     // ==========================================
-    // 1. IMAGE GENERATION ENGINE (CLICKABLE & 4K/1080P DOWNLOAD)
+    // 1. IMAGE GENERATION & EDITING ENGINE
     // ==========================================
     if (mode === 'generate') {
-      const finalPrompt = prompt || 'A creative artwork';
+      let finalPrompt = prompt || 'A creative artwork';
+
+      // Kung may in-upload na larawan para i-edit, gagamitin ang Gemini Vision para i-analyze ito muna
+      if (image) {
+        try {
+          const base64Data = image.includes(',') ? image.split(',')[1] : image;
+          const mimeType = image.includes(';') ? image.split(';')[0].split(':')[1] : 'image/jpeg';
+
+          const visionPayload = {
+            contents: [{
+              role: 'user',
+              parts: [
+                { text: `Analyze this image in detail and describe how to modify it according to this request: "${prompt}". Provide a highly detailed image generation prompt describing the updated visual elements, style, subject, and composition directly in English. Do not add conversational fluff.` },
+                { inline_data: { mime_type: mimeType, data: base64Data } }
+              ]
+            }]
+          };
+
+          const vRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(visionPayload)
+          });
+          const vData = await vRes.json();
+          const enrichedPrompt = vData.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (enrichedPrompt) {
+            finalPrompt = enrichedPrompt.trim();
+          }
+        } catch (e) {
+          console.warn('Vision prompt enrichment failed, fallback to original text prompt:', e.message);
+        }
+      }
+
       const encodedPrompt = encodeURIComponent(finalPrompt);
       const seed = Math.floor(Math.random() * 999999);
 
-      // Stable direct endpoints
       const img1080 = `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&seed=${seed}&width=1920&height=1080&nologo=true`;
       const img4K = `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux-realism&seed=${seed}&width=3840&height=2160&nologo=true`;
 
-      // Formatted card with clickable image & download options
       const formattedResponse = `
         <div class="flex flex-col gap-3 my-1">
-          <p class="text-emerald-400 font-medium">Narito ang iyong na-generate na larawan batay sa prompt: "${finalPrompt}"</p>
+          <p class="text-emerald-400 font-medium">Narito ang iyong na-generate / na-edit na larawan batay sa kahilingan: "${prompt || 'Artwork'}"</p>
           <div class="relative group rounded-xl overflow-hidden border border-white/20 bg-black/40">
             <a href="${img4K}" target="_blank" rel="noopener noreferrer" class="block cursor-pointer">
               <img src="${img1080}" alt="${finalPrompt}" class="w-full h-auto object-cover hover:scale-[1.02] transition duration-300" />
@@ -58,25 +93,15 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 2. TEXT & VISION AI TUTOR ENGINE (GEMINI)
+    // 2. TEXT & VISION TUTOR ENGINE
     // ==========================================
-    const apiKey = getNextApiKey();
-    if (!apiKey) {
-      return res.status(500).json({ error: 'API Keys missing on Vercel Environment Variables.' });
-    }
-
     let systemInstruction = `Ikaw si Jampong AI, isang mahusay at matalinong academic tutor na dalubhasa sa lahat ng asignatura.`;
 
     if (strictTutoring) {
-      systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang mga pahiwatig (Socratic Method).`;
+      systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang Socratic Method.`;
     }
     if (studyMode) {
       systemInstruction += `\n[STUDY MODE ACTIVE]: Ibigay ang sagot sa anyo ng structured summary, bulleted points, at maikling 3-question quiz sa huli.`;
-    }
-    if (systemMode === 'calculator') {
-      systemInstruction += `\n[CALCULATOR MODE]: Magpakita ng detalyadong mathematical resolution breakdown.`;
-    } else if (systemMode === 'coding') {
-      systemInstruction += `\n[CODING ASSISTANT]: Magbigay ng malinis at functional code snippets na may inline comments.`;
     }
 
     const contents = [];
@@ -141,12 +166,11 @@ export default async function handler(req, res) {
         break;
       } else {
         lastError = data.error.message;
-        console.warn(`Model ${currentModel} failed with error: ${lastError}. Trying next fallback...`);
       }
     }
 
     if (lastError) {
-      throw new Error(`Lahat ng models ay nag-error: ${lastError}`);
+      throw new Error(`Nagkaroon ng error sa model: ${lastError}`);
     }
 
     const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Walang natanggap na sagot mula sa model.';
