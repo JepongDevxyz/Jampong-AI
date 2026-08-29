@@ -365,7 +365,7 @@
           <span id="dola-prompt-label">Instructions / Text Payload</span>
           <span class="text-[9px] text-indigo-500 font-bold" id="dola-prompt-hint">Auto-analyzes if empty in Vision Mode</span>
         </label>
-        <textarea id="dola-prompt-text" rows="2" placeholder="Ex: Change the duck into giraffe..." class="w-full glass-card p-2.5 rounded-xl text-xs outline-none focus:border-indigo-400/50 resize-none border border-white/10 placeholder-gray-400"></textarea>
+        <textarea id="dola-prompt-text" rows="2" placeholder="Ex: https://facebook.com or Change background to parish..." class="w-full glass-card p-2.5 rounded-xl text-xs outline-none focus:border-indigo-400/50 resize-none border border-white/10 placeholder-gray-400"></textarea>
       </div>
 
       <button id="qr-cam-btn" onclick="startQRCameraScanner()" class="hidden w-full py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-600 dark:text-emerald-200 text-xs rounded-xl font-medium transition flex items-center justify-center gap-2">
@@ -407,7 +407,7 @@
         <div class="p-3 glass-card rounded-xl space-y-1">
           <p class="text-indigo-600 dark:text-indigo-400 font-semibold">System v4.9 Core Optimized</p>
           <p class="opacity-70">Developer: <strong>Jay-Ar Lee Espiritu</strong></p>
-          <p class="opacity-50 text-[10px]">Engine: JepongDevxyz AI - Gemini 3.7 Flash & Flux Engine</p>
+          <p class="opacity-50 text-[10px]">Engine: JepongDevxyz AI - Gemini 3.7 Flash</p>
         </div>
         <button onclick="clearAllHistory()" class="w-full py-2 bg-red-500/20 hover:bg-red-500/30 text-red-500 dark:text-red-300 rounded-xl font-medium border border-red-500/30 transition">
           Clear Chat History
@@ -603,6 +603,27 @@
           refEl.classList.remove('opacity-0');
         }, 500);
       }, 5000);
+    }
+
+    // Direct Image Download Helper (Blob Stream)
+    async function downloadImageBlob(url, quality) {
+      try {
+        showToast(`Preparing ${quality} download...`);
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `jampong-ai-${quality}-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+        showToast('Download complete!');
+      } catch (e) {
+        window.open(url, '_blank');
+      }
     }
 
     function openCodePreviewSandbox(initialCode = '<h1 style="font-family:sans-serif; text-align:center; margin-top:20vh; color:#4f46e5;">Welcome to Code Preview, I am Jampong AI! ✨</h1>') {
@@ -1171,6 +1192,7 @@
       .catch(() => showToast('Failed to copy.'));
     }
 
+    // Dynamic Render Engine Fix
     function renderChatMessages() {
       if (bibleInterval) clearInterval(bibleInterval);
       chatViewport.innerHTML = '';
@@ -1196,35 +1218,24 @@
         return;
       }
 
-      activeChat.messages.forEach((msg) => {
+      activeChat.messages.forEach((msg, msgIdx) => {
         const wrap = document.createElement('div');
         const isUser = msg.role === 'user';
         wrap.className = `flex flex-col ${isUser ? 'items-end' : 'items-start'} my-2 relative group`;
         const bubble = document.createElement('div');
         bubble.className = `max-w-[92%] md:max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed relative ${isUser ? 'bg-indigo-600 text-white' : 'glass-card border border-white/10'}`;
         
-        let parsedText = msg.text || '';
-
-        if (msg.imageUrl || (typeof msg.text === 'string' && (msg.text.startsWith('http') || msg.text.startsWith('data:image/')) && !msg.text.includes(' '))) {
-          const imgSrc = msg.imageUrl || msg.text;
-          parsedText = `
-            <div class="space-y-2">
-              <p class="font-semibold text-emerald-400">${msg.text && !msg.text.startsWith('http') ? msg.text : 'Na-generate na Larawan:'}</p>
-              <div class="rounded-xl overflow-hidden max-w-md border border-white/20 shadow-xl">
-                <img src="${imgSrc}" class="w-full h-auto object-cover" alt="Generated Image"/>
-              </div>
-              <a href="${imgSrc}" target="_blank" class="inline-flex items-center gap-1 text-[10px] text-indigo-400 hover:underline">
-                <i data-lucide="external-link" class="w-3 h-3"></i> Tignan sa Full Resolution
-              </a>
-            </div>
-          `;
+        // Pag-render ng HTML vs Text (Kusang magre-render ng buttons/links)
+        if (!isUser && (msg.text.includes('<div') || msg.text.includes('<button'))) {
+          bubble.innerHTML = msg.text;
         } else if (!isUser && typeof marked !== 'undefined') {
-          parsedText = marked.parse(msg.text);
+          bubble.innerHTML = marked.parse(msg.text);
+        } else {
+          bubble.innerText = msg.text;
         }
 
-        bubble.innerHTML = parsedText;
-
-        if (!isUser && !msg.imageUrl) {
+        // Copy Text Button
+        if (!isUser && !msg.text.includes('<button')) {
           const copyMsgBtn = document.createElement('button');
           copyMsgBtn.className = "mt-2 px-2.5 py-1 glass-card hover:bg-white/10 text-[10px] text-gray-300 rounded-lg flex items-center gap-1 border border-white/10 transition";
           copyMsgBtn.innerHTML = `<i data-lucide="copy" class="w-3 h-3"></i> Copy Text`;
@@ -1232,6 +1243,7 @@
           bubble.appendChild(copyMsgBtn);
         }
 
+        // Code Action Bar Handler
         const codeBlocks = bubble.querySelectorAll('pre');
         codeBlocks.forEach((pre) => {
           const codeEl = pre.querySelector('code');
@@ -1299,7 +1311,7 @@
       userInput.value = '';
       renderChatMessages();
 
-      if (isVisionProcessing || activeAttachment || dolaMode === 'generate') {
+      if (isVisionProcessing || activeAttachment) {
         statusIndicatorBar.classList.remove('hidden');
       } else {
         statusIndicatorBar.classList.add('hidden');
@@ -1322,15 +1334,7 @@
         });
         const data = await response.json();
 
-        if (data.imageUrl) {
-          activeChat.messages.push({ 
-            role: 'assistant', 
-            text: data.response || 'Narito ang iyong na-generate na larawan:', 
-            imageUrl: data.imageUrl 
-          });
-        } else {
-          activeChat.messages.push({ role: 'assistant', text: data.response || 'Walang tugon mula sa server.' });
-        }
+        activeChat.messages.push({ role: 'assistant', text: data.response || 'Walang tugon mula sa server.' });
       } catch (err) {
         if (err.name !== 'AbortError') activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${err.message}` });
       } finally {
