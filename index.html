@@ -365,7 +365,7 @@
           <span id="dola-prompt-label">Instructions / Text Payload</span>
           <span class="text-[9px] text-indigo-500 font-bold" id="dola-prompt-hint">Auto-analyzes if empty in Vision Mode</span>
         </label>
-        <textarea id="dola-prompt-text" rows="2" placeholder="Ex: https://facebook.com or Change background to parish..." class="w-full glass-card p-2.5 rounded-xl text-xs outline-none focus:border-indigo-400/50 resize-none border border-white/10 placeholder-gray-400"></textarea>
+        <textarea id="dola-prompt-text" rows="2" placeholder="Ex: Change the duck into giraffe..." class="w-full glass-card p-2.5 rounded-xl text-xs outline-none focus:border-indigo-400/50 resize-none border border-white/10 placeholder-gray-400"></textarea>
       </div>
 
       <button id="qr-cam-btn" onclick="startQRCameraScanner()" class="hidden w-full py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-600 dark:text-emerald-200 text-xs rounded-xl font-medium transition flex items-center justify-center gap-2">
@@ -407,7 +407,7 @@
         <div class="p-3 glass-card rounded-xl space-y-1">
           <p class="text-indigo-600 dark:text-indigo-400 font-semibold">System v4.9 Core Optimized</p>
           <p class="opacity-70">Developer: <strong>Jay-Ar Lee Espiritu</strong></p>
-          <p class="opacity-50 text-[10px]">Engine: JepongDevxyz AI - Gemini 3.7 Flash</p>
+          <p class="opacity-50 text-[10px]">Engine: JepongDevxyz AI - Gemini 3.7 Flash & Flux Engine</p>
         </div>
         <button onclick="clearAllHistory()" class="w-full py-2 bg-red-500/20 hover:bg-red-500/30 text-red-500 dark:text-red-300 rounded-xl font-medium border border-red-500/30 transition">
           Clear Chat History
@@ -915,7 +915,7 @@
     let activeAttachment = null;
     let activeAbortController = null;
     let dolaMode = 'analyze';
-    let isVisionProcessing = false; // Flag para malaman kung galing sa Vision Engine
+    let isVisionProcessing = false;
     let html5QrCodeScanner = null;
     let featureFlags = { webSearch: false, studyMode: false };
 
@@ -1094,7 +1094,7 @@
         if (prompt) { generateQRCode(prompt); closeDolaModal(); } 
         else { showToast('Please enter text or URL for QR code.'); }
       } else {
-        isVisionProcessing = true; // Mark na galing ito sa Vision/Image Engine
+        isVisionProcessing = true;
         indicatorText.innerText = dolaMode === 'generate' ? "Generating image with Engine..." : "Analyzing homework with Core Engine...";
         closeDolaModal();
         submitPrompt(prompt);
@@ -1196,26 +1196,34 @@
         return;
       }
 
-      activeChat.messages.forEach((msg, msgIdx) => {
+      activeChat.messages.forEach((msg) => {
         const wrap = document.createElement('div');
         const isUser = msg.role === 'user';
         wrap.className = `flex flex-col ${isUser ? 'items-end' : 'items-start'} my-2 relative group`;
         const bubble = document.createElement('div');
         bubble.className = `max-w-[92%] md:max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed relative ${isUser ? 'bg-indigo-600 text-white' : 'glass-card border border-white/10'}`;
         
-        let parsedText = msg.text;
+        let parsedText = msg.text || '';
 
-        // Image response handler (kapag base64 o image URL ang pumasok)
-        if (msg.imageUrl || (typeof msg.text === 'string' && msg.text.startsWith('data:image/'))) {
+        if (msg.imageUrl || (typeof msg.text === 'string' && (msg.text.startsWith('http') || msg.text.startsWith('data:image/')) && !msg.text.includes(' '))) {
           const imgSrc = msg.imageUrl || msg.text;
-          parsedText = `<div class="rounded-xl overflow-hidden my-1 max-w-sm"><img src="${imgSrc}" class="w-full h-auto object-cover rounded-xl shadow-lg border border-white/20" alt="Generated Image"/></div>`;
+          parsedText = `
+            <div class="space-y-2">
+              <p class="font-semibold text-emerald-400">${msg.text && !msg.text.startsWith('http') ? msg.text : 'Na-generate na Larawan:'}</p>
+              <div class="rounded-xl overflow-hidden max-w-md border border-white/20 shadow-xl">
+                <img src="${imgSrc}" class="w-full h-auto object-cover" alt="Generated Image"/>
+              </div>
+              <a href="${imgSrc}" target="_blank" class="inline-flex items-center gap-1 text-[10px] text-indigo-400 hover:underline">
+                <i data-lucide="external-link" class="w-3 h-3"></i> Tignan sa Full Resolution
+              </a>
+            </div>
+          `;
         } else if (!isUser && typeof marked !== 'undefined') {
           parsedText = marked.parse(msg.text);
         }
 
         bubble.innerHTML = parsedText;
 
-        // Magdagdag ng Copy Button para sa buong text message
         if (!isUser && !msg.imageUrl) {
           const copyMsgBtn = document.createElement('button');
           copyMsgBtn.className = "mt-2 px-2.5 py-1 glass-card hover:bg-white/10 text-[10px] text-gray-300 rounded-lg flex items-center gap-1 border border-white/10 transition";
@@ -1224,7 +1232,6 @@
           bubble.appendChild(copyMsgBtn);
         }
 
-        // Mag-inject ng Run at Copy button sa bawat Code Block (`<pre>`)
         const codeBlocks = bubble.querySelectorAll('pre');
         codeBlocks.forEach((pre) => {
           const codeEl = pre.querySelector('code');
@@ -1292,8 +1299,7 @@
       userInput.value = '';
       renderChatMessages();
 
-      // PAPAKITAN LANG ANG INDICATOR BAR KAGAGANAPAN NG VISION / IMAGE REQUEST O MAY ATTACHMENT
-      if (isVisionProcessing || activeAttachment) {
+      if (isVisionProcessing || activeAttachment || dolaMode === 'generate') {
         statusIndicatorBar.classList.remove('hidden');
       } else {
         statusIndicatorBar.classList.add('hidden');
@@ -1316,9 +1322,12 @@
         });
         const data = await response.json();
 
-        // Suriin kung nagbalik ng image URL / base64 ang server
         if (data.imageUrl) {
-          activeChat.messages.push({ role: 'assistant', text: 'Narito ang iyong hiling na larawan:', imageUrl: data.imageUrl });
+          activeChat.messages.push({ 
+            role: 'assistant', 
+            text: data.response || 'Narito ang iyong na-generate na larawan:', 
+            imageUrl: data.imageUrl 
+          });
         } else {
           activeChat.messages.push({ role: 'assistant', text: data.response || 'Walang tugon mula sa server.' });
         }
@@ -1327,7 +1336,7 @@
       } finally {
         removeAttachment();
         statusIndicatorBar.classList.add('hidden');
-        isVisionProcessing = false; // I-reset ang vision flag
+        isVisionProcessing = false;
         saveChats();
         renderChatHistory();
         renderChatMessages();
