@@ -455,7 +455,7 @@
         </div>
       </header>
 
-      <!-- Dola Status Indicator (Lalabas lang kapag Dola Multi-Studio ang ginamit) -->
+      <!-- Dola Status Indicator -->
       <div id="status-indicator-bar" class="hidden shrink-0 px-4 py-1.5 bg-indigo-600/20 border-b border-indigo-500/30 flex items-center justify-between text-xs">
         <span class="flex items-center gap-2 text-indigo-600 dark:text-indigo-300 font-medium">
           <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
@@ -566,12 +566,20 @@
       const container = document.getElementById('dict-results');
       if(!q) return;
 
-      container.innerHTML = `<div class="text-center py-4 text-gray-400"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto mb-1"></i> Fetching live data from Merriam-Webster API...</div>`;
+      container.innerHTML = `<div class="text-center py-4 text-gray-400"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto mb-1"></i> Fetching live data from Merriam-Webster</div>`;
       lucide.createIcons();
 
       try {
         const res = await fetch(`https://www.dictionaryapi.com/api/v3/references/collegiate/json/${encodeURIComponent(q)}?key=${MERRIAM_WEBSTER_KEY}`);
-        const data = await res.json();
+        const rawText = await res.text();
+        
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch (e) {
+          container.innerHTML = `<p class="text-red-400 text-center py-4">Merriam-Webster try again...</p>`;
+          return;
+        }
 
         if(!data || data.length === 0 || typeof data[0] === 'string') {
           container.innerHTML = `<p class="text-red-400 text-center py-4">No exact results found. Suggestions: ${Array.isArray(data) ? data.slice(0,5).join(', ') : 'None'}</p>`;
@@ -907,7 +915,6 @@
       const qrCamBtn = document.getElementById('qr-cam-btn');
       const uploadArea = document.getElementById('dola-upload-area');
 
-      // I-reset ang mga kulay ng buttons
       analyzeBtn.className = "py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1";
       generateBtn.className = "py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1";
       qrBtn.className = "py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1";
@@ -1007,7 +1014,6 @@
           showToast('Please enter text or URL for QR code.');
         }
       } else {
-        // Dito lamang lalabas ang Dola status banner kapag Vision o Generate ang ginamit mula sa Dola Studio
         statusIndicatorBar.classList.remove('hidden');
         indicatorText.innerText = dolaMode === 'generate' ? "Generating image with Dola Engine..." : "Analyzing homework with Vision Engine...";
         closeDolaModal();
@@ -1155,6 +1161,7 @@
       userInput.value = '';
       renderChatMessages();
 
+      statusIndicatorBar.classList.remove('hidden');
       activeAbortController = new AbortController();
 
       try {
