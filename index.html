@@ -559,30 +559,24 @@
       }, 5000);
     }
 
-    const MERRIAM_WEBSTER_KEY = "36319bc5-c8c2-4043-9dc2-7c805eb5cbbe";
-
     async function searchMerriamWebster() {
       const q = document.getElementById('dict-search').value.trim().toLowerCase();
       const container = document.getElementById('dict-results');
       if(!q) return;
 
-      container.innerHTML = `<div class="text-center py-4 text-gray-400"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto mb-1"></i> Fetching live data from Merriam-Webster</div>`;
+      container.innerHTML = `<div class="text-center py-4 text-gray-400"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto mb-1"></i> Naghahanap sa Merriam-Webster...</div>`;
       lucide.createIcons();
 
       try {
-        const res = await fetch(`https://www.dictionaryapi.com/api/v3/references/collegiate/json/${encodeURIComponent(q)}?key=${MERRIAM_WEBSTER_KEY}`);
-        const rawText = await res.text();
-        
-        let data;
-        try {
-          data = JSON.parse(rawText);
-        } catch (e) {
-          container.innerHTML = `<p class="text-red-400 text-center py-4">Merriam-Webster try again...</p>`;
-          return;
+        const res = await fetch(`/api/dictionary?word=${encodeURIComponent(q)}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'May naganap na error sa server.');
         }
 
         if(!data || data.length === 0 || typeof data[0] === 'string') {
-          container.innerHTML = `<p class="text-red-400 text-center py-4">No exact results found. Suggestions: ${Array.isArray(data) ? data.slice(0,5).join(', ') : 'None'}</p>`;
+          container.innerHTML = `<p class="text-red-400 text-center py-4">Walang nakitang eksaktong kahulugan. Mga Mungkahi: ${Array.isArray(data) ? data.slice(0,5).join(', ') : 'Wala'}</p>`;
           return;
         }
 
@@ -590,8 +584,8 @@
         data.slice(0, 3).forEach(entry => {
           const word = entry.hwi?.hw?.replace(/\*/g, '·') || q;
           const fl = entry.fl || 'noun/verb';
-          const shortdefs = entry.shortdef || ['No definition available.'];
-          const etymology = entry.et?.[0]?.[1] ? entry.et[0][1].replace(/\{[^}]+\}/g, '') : ' Etymology unavailable';
+          const shortdefs = entry.shortdef || ['Walang maikling kahulugan.'];
+          const etymology = entry.et?.[0]?.[1] ? entry.et[0][1].replace(/\{[^}]+\}/g, '') : ' Walang etimolohiya';
 
           let audioUrl = null;
           if (entry.hwi?.prs?.[0]?.sound?.audio) {
@@ -611,23 +605,23 @@
                 <h4 class="font-bold text-base text-purple-400 capitalize">${word}</h4>
                 <span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold uppercase tracking-wider">${fl}</span>
               </div>
-              ${audioUrl ? `<button onclick="new Audio('${audioUrl}').play()" class="p-2 bg-purple-600/30 hover:bg-purple-600 text-purple-200 rounded-xl border border-purple-500/30 flex items-center gap-1"><i data-lucide="volume-2" class="w-4 h-4"></i> Listen</button>` : ''}
+              ${audioUrl ? `<button onclick="new Audio('${audioUrl}').play()" class="p-2 bg-purple-600/30 hover:bg-purple-600 text-purple-200 rounded-xl border border-purple-500/30 flex items-center gap-1"><i data-lucide="volume-2" class="w-4 h-4"></i> Pakinggan</button>` : ''}
             </div>
             <div>
-              <p class="text-[10px] font-bold text-gray-400 uppercase">Definitions:</p>
+              <p class="text-[10px] font-bold text-gray-400 uppercase">Kahulugan:</p>
               <ul class="list-disc list-inside space-y-1 text-gray-200 mt-1">
                 ${shortdefs.map(d => `<li>${d}</li>`).join('')}
               </ul>
             </div>
             <div class="border-t border-white/5 pt-1.5 text-[10px] text-gray-400">
-              <span class="font-bold">Etymology:</span> ${etymology}
+              <span class="font-bold">Pinagmulan (Etymology):</span> ${etymology}
             </div>
           `;
           container.appendChild(card);
         });
         lucide.createIcons();
       } catch (err) {
-        container.innerHTML = `<p class="text-red-400 text-center py-4">Merriam-Webster API Error: ${err.message}</p>`;
+        container.innerHTML = `<p class="text-red-400 text-center py-4">Error: ${err.message}</p>`;
       }
     }
 
