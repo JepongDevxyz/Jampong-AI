@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Jampong AI</title>
   
-  <!-- External Libraries -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -112,52 +111,53 @@
       transition: opacity 0.5s ease-in-out;
     }
 
-    /* Jakub Antalik Style Orb Animation Components */
+    /* Jakub Antalik Style Animated Thinking Orbs */
     @keyframes orb-spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
     @keyframes orb-pulse {
-      0%, 100% { opacity: 0.4; transform: scale(0.98); }
-      50% { opacity: 0.9; transform: scale(1.02); }
+      0%, 100% { opacity: 0.6; transform: scale(0.98); }
+      50% { opacity: 1; transform: scale(1.02); }
     }
-    .orb-container {
+    .jakub-orb-bubble {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
-      padding: 8px 16px;
-      background: rgba(255, 255, 255, 0.06);
-      backdrop-filter: blur(12px);
+      gap: 12px;
+      padding: 10px 18px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 9999px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-      animation: orb-pulse 2.5s infinite ease-in-out;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      animation: orb-pulse 2s infinite ease-in-out;
+      color: #f8fafc;
+      font-size: 13px;
+      font-weight: 500;
     }
-    .orb-dot {
-      width: 18px;
-      height: 18px;
+    .jakub-orb-sphere {
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, #ffffff 0%, #94a3b8 40%, #1e293b 100%);
-      box-shadow: inset 0 0 4px rgba(255,255,255,0.8), 0 0 8px rgba(99, 102, 241, 0.5);
+      background: radial-gradient(circle at 35% 35%, #ffffff 0%, #cbd5e1 35%, #0f172a 100%);
+      box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.9), 0 0 10px rgba(99, 102, 241, 0.6);
       position: relative;
       overflow: hidden;
     }
-    .orb-dot::after {
+    .jakub-orb-sphere::after {
       content: '';
       position: absolute;
-      inset: -2px;
-      border: 1.5px dashed rgba(255, 255, 255, 0.6);
+      inset: -3px;
+      border: 1.5px dashed rgba(255, 255, 255, 0.7);
       border-radius: 50%;
-      animation: orb-spin 4s linear infinite;
+      animation: orb-spin 3.5s linear infinite;
     }
   </style>
 </head>
 <body class="h-[100dvh] w-screen flex flex-col antialiased select-none">
 
-  <!-- Toast Notification System -->
   <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-  <!-- LIVE CODE PREVIEW MODAL -->
   <div id="code-preview-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex flex-col p-3 md:p-6">
     <div class="glass-panel w-full max-w-5xl mx-auto h-full rounded-3xl flex flex-col overflow-hidden border border-indigo-500/30 shadow-2xl">
       <div class="flex justify-between items-center px-4 py-3 border-b border-white/10 bg-black/25 shrink-0">
@@ -191,7 +191,6 @@
     </div>
   </div>
 
-  <!-- SCIENTIFIC CALCULATOR MODAL -->
   <div id="calculator-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-xs rounded-3xl p-5 flex flex-col gap-3 border border-indigo-500/30 shadow-2xl relative">
       <div class="flex justify-between items-center border-b border-white/10 pb-2">
@@ -232,7 +231,6 @@
     </div>
   </div>
 
-  <!-- MERRIAM-WEBSTER API LIVE STUDENT DICTIONARY MODAL -->
   <div id="dictionary-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-md rounded-3xl p-5 flex flex-col gap-3 border border-indigo-500/30 shadow-2xl relative max-h-[85vh]">
       <div class="flex justify-between items-center border-b border-white/10 pb-2">
@@ -252,7 +250,6 @@
     </div>
   </div>
 
-  <!-- INTERACTIVE EXAM GENERATOR WITH TIMER MODAL -->
   <div id="exam-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-lg rounded-3xl p-5 flex flex-col gap-4 border border-indigo-500/30 shadow-2xl relative max-h-[90vh]">
       <div class="flex justify-between items-center border-b border-white/10 pb-2">
@@ -305,7 +302,6 @@
     </div>
   </div>
 
-  <!-- AI SPEECH & PRONUNCIATION COACH MODAL -->
   <div id="pronunciation-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-md rounded-3xl p-5 flex flex-col gap-4 border border-indigo-500/30 shadow-2xl relative">
       <div class="flex justify-between items-center border-b border-white/10 pb-2">
@@ -342,7 +338,6 @@
     </div>
   </div>
 
-  <!-- MULTI-FUNCTION DOLA SMART AI & QR STUDIO MODAL -->
   <div id="dola-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-md rounded-3xl p-6 flex flex-col gap-4 border border-indigo-500/30 shadow-2xl relative">
       <div class="flex justify-between items-center border-b border-white/10 pb-3">
@@ -417,7 +412,6 @@
     </div>
   </div>
 
-  <!-- QR DISPLAY MODAL -->
   <div id="qr-display-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-xs rounded-3xl p-6 flex flex-col items-center text-center gap-4 border border-emerald-500/30 shadow-2xl">
       <h3 class="font-bold text-sm flex items-center gap-2">
@@ -435,7 +429,6 @@
     </div>
   </div>
 
-  <!-- Settings Pop Up Modal -->
   <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-sm rounded-2xl p-5 space-y-4">
       <div class="flex justify-between items-center border-b border-white/10 pb-2">
@@ -455,11 +448,9 @@
     </div>
   </div>
 
-  <!-- App Main Layout -->
   <div class="flex h-full w-full overflow-hidden relative">
     <div id="drawer-backdrop" class="fixed inset-0 bg-black/50 z-30 md:hidden hidden" onclick="toggleSidebar(false)"></div>
 
-    <!-- Sidebar -->
     <aside id="sidebar" class="absolute md:relative z-40 h-full w-72 glass-panel transition-transform duration-300 transform -translate-x-full md:translate-x-0 flex flex-col justify-between shrink-0">
       <div class="p-3.5 flex flex-col h-full overflow-hidden">
         <div class="flex items-center justify-between mb-3 shrink-0">
@@ -502,7 +493,6 @@
       </div>
     </aside>
 
-    <!-- Main Dynamic Chat Area -->
     <main class="flex-1 flex flex-col h-full w-full min-w-0 overflow-hidden relative">
       <header class="h-14 glass-panel shrink-0 flex items-center justify-between px-3 md:px-5 z-20 gap-2">
         <div class="flex items-center gap-2 min-w-0 flex-1">
@@ -530,17 +520,16 @@
         </div>
       </header>
 
-      <div id="status-indicator-bar" class="hidden shrink-0 px-4 py-1.5 bg-indigo-600/20 border-b border-indigo-500/30 flex items-center justify-between text-xs">
-        <span class="flex items-center gap-2 text-indigo-600 dark:text-indigo-300 font-medium">
-          <div class="orb-container !p-1 !bg-transparent !border-0 !shadow-none"><div class="orb-dot"></div></div>
-          <span id="indicator-text">Thinking...</span>
-        </span>
-        <button onclick="stopGeneration()" class="px-2.5 py-0.5 bg-red-500/30 hover:bg-red-500/50 text-red-600 dark:text-red-200 text-[11px] rounded-md transition font-medium">Stop</button>
+      <div id="status-indicator-bar" class="hidden shrink-0 px-4 py-2 bg-indigo-950/40 border-b border-indigo-500/30 flex items-center justify-between text-xs z-20">
+        <div class="jakub-orb-bubble !py-1 !px-3 !shadow-none !border-0 !bg-transparent">
+          <div class="jakub-orb-sphere !w-4 !h-4"></div>
+          <span id="indicator-text" class="font-semibold tracking-wide text-indigo-200">Thinking...</span>
+        </div>
+        <button onclick="stopGeneration()" class="px-3 py-1 bg-red-500/20 hover:bg-red-500/40 text-red-300 text-[11px] rounded-lg transition font-medium border border-red-500/30">Stop</button>
       </div>
 
       <div id="chat-viewport" class="flex-1 overflow-y-auto p-3 md:p-5 space-y-4 flex flex-col justify-center items-center"></div>
 
-      <!-- INPUT PANEL -->
       <div class="p-3 glass-panel shrink-0 border-t border-white/10 relative z-10">
         <div id="file-preview-bar" class="hidden mb-2 relative inline-flex items-center gap-2 glass-card p-1.5 pr-3 rounded-xl border border-indigo-400/40">
           <img id="attached-thumb" src="" class="w-10 h-10 object-cover rounded-lg">
@@ -705,7 +694,7 @@
       const container = document.getElementById('dict-results');
       if(!q) return;
 
-      container.innerHTML = `<div class="text-center py-4 text-gray-400"><div class="orb-container mx-auto mb-2"><div class="orb-dot"></div></div> Searching Merriam-Webster...</div>`;
+      container.innerHTML = `<div class="text-center py-4 text-gray-400"><div class="jakub-orb-bubble mx-auto mb-2"><div class="jakub-orb-sphere"></div><span>Searching...</span></div></div>`;
       lucide.createIcons();
 
       try {
@@ -788,7 +777,7 @@
       document.getElementById('exam-current-topic').innerText = topic;
 
       const container = document.getElementById('exam-questions-container');
-      container.innerHTML = `<div class="text-center py-10 text-gray-400"><div class="orb-container mx-auto mb-2"><div class="orb-dot"></div></div> Generating custom exam via AI...</div>`;
+      container.innerHTML = `<div class="text-center py-10 text-gray-400"><div class="jakub-orb-bubble mx-auto mb-2"><div class="jakub-orb-sphere"></div><span>Generating exam...</span></div></div>`;
       lucide.createIcons();
 
       examData = [];
@@ -1138,7 +1127,6 @@
         else { showToast('Please enter text or URL for QR code.'); }
       } else {
         isVisionProcessing = true;
-        indicatorText.innerText = dolaMode === 'generate' ? "Solving..." : "Thinking...";
         closeDolaModal();
         submitPrompt(prompt);
       }
@@ -1331,11 +1319,17 @@
       userInput.value = '';
       renderChatMessages();
 
+      // Ipakita ang Jakub Antalik style thinking / solving orb indicator sa normal na usapan at generation
       statusIndicatorBar.classList.remove('hidden');
       indicatorText.innerText = "Thinking...";
       
-      // Dynamic cycle to mimic Jakub Antalik style thinking / solving states
-      setTimeout(() => { if(!activeAbortController?.signal.aborted) indicatorText.innerText = "Solving..."; }, 1500);
+      // Dynamic status sequence (Thinking -> Solving -> Working -> Searching)
+      const statuses = ["Thinking...", "Solving...", "Working...", "Searching..."];
+      let statusIdx = 0;
+      const statusInterval = setInterval(() => {
+        statusIdx = (statusIdx + 1) % statuses.length;
+        indicatorText.innerText = statuses[statusIdx];
+      }, 1800);
 
       activeAbortController = new AbortController();
 
@@ -1369,6 +1363,7 @@
           activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${err.message}` });
         }
       } finally {
+        clearInterval(statusInterval);
         removeAttachment();
         statusIndicatorBar.classList.add('hidden');
         isVisionProcessing = false;
@@ -1379,7 +1374,9 @@
       }
     }
 
-    function stopGeneration() { if (activeAbortController) activeAbortController.abort(); }
+    function stopGeneration() { 
+      if (activeAbortController) activeAbortController.abort(); 
+    }
   </script>
 </body>
 </html>
