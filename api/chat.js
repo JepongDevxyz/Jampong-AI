@@ -32,16 +32,18 @@ export default async function handler(req, res) {
       let finalPrompt = prompt || 'A detailed artwork';
 
       // Kapag may in-upload na larawan para i-edit, gagamitin ang Vision AI 
-      // para i-analyze ang visual context at gumawa ng Dola-level descriptive prompt.
+      // para i-analyze ang visual context at panatilihin ang eksaktong layout, estilo, at kulay.
       if (image) {
         try {
           const base64Data = image.includes(',') ? image.split(',')[1] : image;
           const mimeType = image.includes(';') ? image.split(';')[0].split(':')[1] : 'image/jpeg';
 
           const visionSystemInstruction = `
-            You are an expert AI Image Prompt Engineer like Dola AI.
-            Analyze the provided image and the user's edit instruction: "${prompt}".
-            Create an ultra-detailed, vivid text-to-image description that retains the original image's key visual elements (composition, pose, background, studio lighting, camera angle, color scheme, outfit) while accurately replacing or modifying the subject as requested.
+            You are an expert AI Image-to-Image Prompt Engineer.
+            The user has uploaded an existing image and provided this edit instruction: "${prompt}".
+            Strictly analyze the uploaded image and generate a descriptive text-to-image prompt by following these rules:
+            1. Keep the exact same graphic style, UI layout, composition, framing, color scheme, typography placement, and background elements from the original image.
+            2. Apply ONLY the modification requested by the user: "${prompt}" (e.g., if the user wants to change a specific icon or character like the duck into a horse, keep everything else completely identical, swapping out only that specific subject while matching the exact art style, color, and design language).
             Return ONLY the final detailed image generation prompt in English with no conversational filler.
           `;
 
@@ -55,8 +57,8 @@ export default async function handler(req, res) {
             }]
           };
 
-          // Fallback sequence para sa Vision Model
-          const visionModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+          // Fallback sequence para sa Vision Model (Nananatili ang mga 3.x models)
+          const visionModels = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
           let enrichedPrompt = null;
 
           for (const vModel of visionModels) {
@@ -161,6 +163,7 @@ export default async function handler(req, res) {
     
     const fallbackModels = [
       preferredModel,
+      'gemini-3.7-flash',
       'gemini-3.6-flash',
       'gemini-3.5-flash',
       'gemini-3.5-flash-lite'
