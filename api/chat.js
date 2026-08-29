@@ -9,8 +9,8 @@ function getNextApiKey() {
   return apiKey;
 }
 
-// Helper function para sa fetch na may strict timeout (hal. 12 seconds)
-async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+// Helper function para sa fetch na may strict timeout (hal. 8 seconds)
+async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 1. IMAGE GENERATION & EDITING ENGINE
+    // 1. FAST IMAGE GENERATION & EDITING ENGINE
     // ==========================================
     if (mode === 'generate') {
       let finalPrompt = prompt || 'A detailed artwork';
@@ -69,9 +69,8 @@ export default async function handler(req, res) {
             }]
           };
 
-          // Fast parallel model trial (Parallel calls para makuha agad ang unang mabilis na sagot)
+          // Sabay-sabay na tawagin ang vision models para makuha ang pinakamabilis na sagot
           const visionModels = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
-          
           const visionPromises = visionModels.map(async (vModel) => {
             const vRes = await fetchWithTimeout(
               `https://generativelanguage.googleapis.com/v1beta/models/${vModel}:generateContent?key=${apiKey}`,
@@ -80,7 +79,7 @@ export default async function handler(req, res) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(visionPayload)
               },
-              8000 // 8-second timeout per vision call
+              8000
             );
             const vData = await vRes.json();
             const textResult = vData.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -88,9 +87,7 @@ export default async function handler(req, res) {
             throw new Error(`Empty response from ${vModel}`);
           });
 
-          // Kunin ang pinakamabilis na nag-return na valid result
           const enrichedPrompt = await Promise.any(visionPromises).catch(() => null);
-
           if (enrichedPrompt) {
             finalPrompt = enrichedPrompt;
           }
@@ -130,19 +127,17 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 2. TEXT & VISION CHAT ENGINE
+    // 2. ULTRA-FAST SSE STREAMING CHAT ENGINE
     // ==========================================
-    let systemInstruction = `Ikaw si Jampong AI, isang mahusay, matalino, at maaasahang assistant at academic tutor.`;
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
 
-    if (strictTutoring) {
-      systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang Socratic Method.`;
-    }
-    if (studyMode) {
-      systemInstruction += `\n[STUDY MODE ACTIVE]: Ibigay ang sagot sa anyo ng structured summary, bulleted points, at maikling 3-question quiz sa huli.`;
-    }
+    let systemInstruction = `Ikaw si Jampong AI, isang mahusay, matalino, at maaasahang assistant at academic tutor.`;
+    if (strictTutoring) systemInstruction += `\n[STRICT TUTORING ACTIVE]: Huwag ibigay ang direktang sagot. Gabayan ang estudyante gamit ang Socratic Method.`;
+    if (studyMode) systemInstruction += `\n[STUDY MODE ACTIVE]: Ibigay ang sagot sa anyo ng structured summary, bulleted points, at maikling 3-question quiz sa huli.`;
 
     const contents = [];
-
     if (Array.isArray(history)) {
       history.forEach(item => {
         contents.push({
@@ -153,84 +148,49 @@ export default async function handler(req, res) {
     }
 
     const userParts = [{ text: `${systemInstruction}\n\nUser Input: ${prompt || 'Analyze this input.'}` }];
-
     if (image) {
       const base64Data = image.includes(',') ? image.split(',')[1] : image;
       const mimeType = image.includes(';') ? image.split(';')[0].split(':')[1] : 'image/jpeg';
-      userParts.push({
-        inline_data: { mime_type: mimeType, data: base64Data }
-      });
+      userParts.push({ inline_data: { mime_type: mimeType, data: base64Data } });
     }
-
     contents.push({ role: 'user', parts: userParts });
 
-    const preferredModel = model && [
-      'gemini-3.7-flash',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash-lite',
-      'gemini-3.5-flash',
-      'gemini-3.1-pro-preview'
-    ].includes(model) ? model : 'gemini-3.7-flash';
-    
-    // Inalis ang mga duplicate sa fallback models gamit ang Set
-    const fallbackModels = Array.from(new Set([
-      preferredModel,
-      'gemini-3.7-flash',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
-      'gemini-3.5-flash-lite'
-    ]));
+    const selectedModel = model || 'gemini-3.7-flash';
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
-    let data = null;
-    let lastError = null;
-
-    for (const currentModel of fallbackModels) {
-      const payload = { 
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         contents,
-        // Pinapabilis ang tugon sa pamamagitan ng pag-disable sa deep reasoning overhead
         generationConfig: {
-          thinkingConfig: {
-            thinkingBudget: 0
-          }
-        }
-      };
+          thinkingConfig: { thinkingBudget: 0 }
+        },
+        ...(webSearch && { tools: [{ google_search: {} }] })
+      })
+    });
 
-      if (webSearch) {
-        payload.tools = [{ google_search: {} }];
-      }
+    if (!response.ok) {
+      res.write(`data: ${JSON.stringify({ error: 'Failed to fetch from Gemini API' })}\n\n`);
+      return res.end();
+    }
 
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
       
-      try {
-        const response = await fetchWithTimeout(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }, 12000); // Max 12s bawat model try
-
-        data = await response.json();
-
-        if (!data.error) {
-          lastError = null;
-          break;
-        } else {
-          lastError = data.error.message;
-        }
-      } catch (err) {
-        lastError = err.message || 'Fetch timeout / network error';
-        console.warn(`Model ${currentModel} timed out or failed. Trying next...`);
-      }
+      const chunk = decoder.decode(value, { stream: true });
+      res.write(chunk);
     }
 
-    if (lastError) {
-      throw new Error(`Error mula sa model: ${lastError}`);
-    }
-
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Walang natanggap na sagot mula sa model.';
-    return res.status(200).json({ response: reply });
+    res.end();
 
   } catch (err) {
-    console.error('Server Handler Error:', err.message);
-    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    console.error('Streaming Handler Error:', err.message);
+    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+    res.end();
   }
 }
