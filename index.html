@@ -1285,11 +1285,22 @@
   const text = overrideText !== null ? overrideText : userInput.value.trim();
   if (!text && !activeAttachment) return;
 
-  const activeChat = chats.find(c => c.id === currentChatId);
-  if (activeChat.messages.length === 0) activeChat.title = text.substring(0, 24) || 'Academic Task';
+  if (!currentChatId) createNewChat();
 
+  const activeChat = chats.find(c => c.id === currentChatId);
+  if (activeChat && activeChat.messages.length === 0) {
+    activeChat.title = text.substring(0, 24) || 'New Chat';
+  }
+
+  // Magdagdag ng user message
   activeChat.messages.push({ role: 'user', text });
+  
+  // Magdagdag ng blangkong assistant message na lalagyan ng streaming response
+  const assistantMsgIndex = activeChat.messages.length;
+  activeChat.messages.push({ role: 'assistant', text: '' });
+  
   userInput.value = '';
+  userInput.style.height = 'auto';
   renderChatMessages();
 
   statusIndicatorBar.classList.remove('hidden');
@@ -1298,7 +1309,7 @@
   try {
     const payload = { 
       prompt: text, 
-      history: activeChat.messages.slice(0, -1), 
+      history: activeChat.messages.slice(0, -2), 
       image: activeAttachment,
       mode: dolaMode,
       webSearch: featureFlags.webSearch,
@@ -1313,46 +1324,57 @@
       body: JSON.stringify(payload)
     });
 
-    const rawText = await response.text();
+    if (!response.ok) {
+      throw new Error(`Server status ${response.status}`);
+    }
 
-    if (response.ok) {
-      let cleanedText = rawText;
-      // Kung SSE stream ang bumalik, linisin ang 'data:' prefixes
-      if (rawText.startsWith('data:')) {
-        cleanedText = rawText
-          .split('\n')
-          .filter(line => line.startsWith('data:'))
-          .map(line => {
-            try {
-              const parsed = JSON.parse(line.replace(/^data:\s*/, ''));
-              return parsed.candidates?.[0]?.content?.parts?.[0]?.text || parsed.text || parsed.response || '';
-            } catch (e) {
-              return '';
+    // Basahin ang stream gamit ang TextDecoder
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let accumulatedText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data:')) {
+          const jsonStr = line.replace(/^data:\s*/, '').trim();
+          if (!jsonStr || jsonStr === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            if (parsed.error) {
+              accumulatedText += `\n⚠️ ${parsed.error}`;
+            } else {
+              const textChunk = parsed.candidates?.[0]?.content?.parts?.[0]?.text || parsed.response || '';
+              accumulatedText += textChunk;
             }
-          })
-          .join('');
-      } else {
-        try {
-          const parsed = JSON.parse(rawText);
-          cleanedText = parsed.response || parsed.text || rawText;
-        } catch (e) {
-          cleanedText = rawText;
+            
+            // I-update ang UI nang realtime
+            activeChat.messages[assistantMsgIndex].text = accumulatedText;
+            renderChatMessages();
+          } catch (e) {
+            // Huwag mag-crash kapag may naputol na JSON chunk sa stream
+          }
         }
       }
-
-      activeChat.messages.push({ role: 'assistant', text: cleanedText || 'Walang natanggap na response.' });
-    } else {
-      activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${rawText}` });
     }
+
+    if (!accumulatedText) {
+      activeChat.messages[assistantMsgIndex].text = 'Walang natanggap na response.';
+    }
+
   } catch (err) {
     if (err.name !== 'AbortError') {
-      activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${err.message}` });
+      activeChat.messages[assistantMsgIndex].text = `⚠️ Error: ${err.message}`;
     }
   } finally {
     removeAttachment();
     statusIndicatorBar.classList.add('hidden');
-    isVisionProcessing = false;
-    dolaMode = 'analyze';
     saveChats();
     renderChatHistory();
     renderChatMessages();
