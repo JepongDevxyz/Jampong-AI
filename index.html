@@ -1282,59 +1282,82 @@
     }
 
     async function submitPrompt(overrideText = null) {
-      const text = overrideText !== null ? overrideText : userInput.value.trim();
-      if (!text && !activeAttachment) return;
+  const text = overrideText !== null ? overrideText : userInput.value.trim();
+  if (!text && !activeAttachment) return;
 
-      const activeChat = chats.find(c => c.id === currentChatId);
-      if (activeChat.messages.length === 0) activeChat.title = text.substring(0, 24) || 'Academic Task';
+  const activeChat = chats.find(c => c.id === currentChatId);
+  if (activeChat.messages.length === 0) activeChat.title = text.substring(0, 24) || 'Academic Task';
 
-      activeChat.messages.push({ role: 'user', text });
-      userInput.value = '';
-      renderChatMessages();
+  activeChat.messages.push({ role: 'user', text });
+  userInput.value = '';
+  renderChatMessages();
 
-      statusIndicatorBar.classList.remove('hidden');
-      activeAbortController = new AbortController();
+  statusIndicatorBar.classList.remove('hidden');
+  activeAbortController = new AbortController();
 
-      try {
-        const payload = { 
-          prompt: text, 
-          history: activeChat.messages.slice(0, -1), 
-          image: activeAttachment,
-          mode: dolaMode,
-          webSearch: featureFlags.webSearch,
-          studyMode: featureFlags.studyMode,
-          model: document.getElementById('model-selector').value
-        };
+  try {
+    const payload = { 
+      prompt: text, 
+      history: activeChat.messages.slice(0, -1), 
+      image: activeAttachment,
+      mode: dolaMode,
+      webSearch: featureFlags.webSearch,
+      studyMode: featureFlags.studyMode,
+      model: document.getElementById('model-selector').value
+    };
 
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: activeAbortController.signal,
-          body: JSON.stringify(payload)
-        });
-        
-        const data = await response.json();
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: activeAbortController.signal,
+      body: JSON.stringify(payload)
+    });
 
-        if (response.ok) {
-          activeChat.messages.push({ role: 'assistant', text: data.response || 'Walang natanggap na tugon.' });
-        } else {
-          activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${data.error || 'Nagkaroon ng problema sa server.'}` });
+    const rawText = await response.text();
+
+    if (response.ok) {
+      let cleanedText = rawText;
+      // Kung SSE stream ang bumalik, linisin ang 'data:' prefixes
+      if (rawText.startsWith('data:')) {
+        cleanedText = rawText
+          .split('\n')
+          .filter(line => line.startsWith('data:'))
+          .map(line => {
+            try {
+              const parsed = JSON.parse(line.replace(/^data:\s*/, ''));
+              return parsed.candidates?.[0]?.content?.parts?.[0]?.text || parsed.text || parsed.response || '';
+            } catch (e) {
+              return '';
+            }
+          })
+          .join('');
+      } else {
+        try {
+          const parsed = JSON.parse(rawText);
+          cleanedText = parsed.response || parsed.text || rawText;
+        } catch (e) {
+          cleanedText = rawText;
         }
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${err.message}` });
-        }
-      } finally {
-        removeAttachment();
-        statusIndicatorBar.classList.add('hidden');
-        isVisionProcessing = false;
-        dolaMode = 'analyze'; // Reset default
-        saveChats();
-        renderChatHistory();
-        renderChatMessages();
       }
-    }
 
+      activeChat.messages.push({ role: 'assistant', text: cleanedText || 'Walang natanggap na response.' });
+    } else {
+      activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${rawText}` });
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${err.message}` });
+    }
+  } finally {
+    removeAttachment();
+    statusIndicatorBar.classList.add('hidden');
+    isVisionProcessing = false;
+    dolaMode = 'analyze';
+    saveChats();
+    renderChatHistory();
+    renderChatMessages();
+  }
+}
     function stopGeneration() { if (activeAbortController) activeAbortController.abort(); }
   </script>
 </body>
