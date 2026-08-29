@@ -9,6 +9,20 @@ function getNextApiKey() {
   return apiKey;
 }
 
+// Helper function para sa fetch na may strict timeout (hal. 12 seconds)
+async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -26,13 +40,11 @@ export default async function handler(req, res) {
     }
 
     // ==========================================
-    // 1. DOLA-ACCURATE IMAGE GENERATION & EDITING ENGINE
+    // 1. IMAGE GENERATION & EDITING ENGINE
     // ==========================================
     if (mode === 'generate') {
       let finalPrompt = prompt || 'A detailed artwork';
 
-      // Kapag may in-upload na larawan para i-edit, gagamitin ang Vision AI 
-      // para i-analyze ang visual context at panatilihin ang eksaktong layout, estilo, at kulay.
       if (image) {
         try {
           const base64Data = image.includes(',') ? image.split(',')[1] : image;
@@ -43,7 +55,7 @@ export default async function handler(req, res) {
             The user has uploaded an existing image and provided this edit instruction: "${prompt}".
             Strictly analyze the uploaded image and generate a descriptive text-to-image prompt by following these rules:
             1. Keep the exact same graphic style, UI layout, composition, framing, color scheme, typography placement, and background elements from the original image.
-            2. Apply ONLY the modification requested by the user: "${prompt}" (e.g., if the user wants to change a specific icon or character like the duck into a horse, keep everything else completely identical, swapping out only that specific subject while matching the exact art style, color, and design language).
+            2. Apply ONLY the modification requested by the user: "${prompt}".
             Return ONLY the final detailed image generation prompt in English with no conversational filler.
           `;
 
@@ -57,27 +69,27 @@ export default async function handler(req, res) {
             }]
           };
 
-          // Fallback sequence para sa Vision Model (Nananatili ang mga 3.x models)
-          const visionModels = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
-          let enrichedPrompt = null;
-
-          for (const vModel of visionModels) {
-            try {
-              const vRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${vModel}:generateContent?key=${apiKey}`, {
+          // Fast parallel model trial (Parallel calls para makuha agad ang unang mabilis na sagot)
+          const visionModels = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
+          
+          const visionPromises = visionModels.map(async (vModel) => {
+            const vRes = await fetchWithTimeout(
+              `https://generativelanguage.googleapis.com/v1beta/models/${vModel}:generateContent?key=${apiKey}`,
+              {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(visionPayload)
-              });
-              const vData = await vRes.json();
-              const textResult = vData.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (textResult) {
-                enrichedPrompt = textResult.trim();
-                break;
-              }
-            } catch (err) {
-              console.warn(`Vision model ${vModel} failed:`, err.message);
-            }
-          }
+              },
+              8000 // 8-second timeout per vision call
+            );
+            const vData = await vRes.json();
+            const textResult = vData.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (textResult) return textResult.trim();
+            throw new Error(`Empty response from ${vModel}`);
+          });
+
+          // Kunin ang pinakamabilis na nag-return na valid result
+          const enrichedPrompt = await Promise.any(visionPromises).catch(() => null);
 
           if (enrichedPrompt) {
             finalPrompt = enrichedPrompt;
@@ -90,7 +102,6 @@ export default async function handler(req, res) {
       const encodedPrompt = encodeURIComponent(finalPrompt);
       const seed = Math.floor(Math.random() * 999999);
 
-      // Fast FLUX rendering via Pollinations API
       const img1080 = `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux&seed=${seed}&width=1920&height=1080&nologo=true`;
       const img4K = `https://image.pollinations.ai/prompt/${encodedPrompt}?model=flux-realism&seed=${seed}&width=3840&height=2160&nologo=true`;
 
@@ -161,38 +172,53 @@ export default async function handler(req, res) {
       'gemini-3.1-pro-preview'
     ].includes(model) ? model : 'gemini-3.7-flash';
     
-    const fallbackModels = [
+    // Inalis ang mga duplicate sa fallback models gamit ang Set
+    const fallbackModels = Array.from(new Set([
       preferredModel,
       'gemini-3.7-flash',
       'gemini-3.6-flash',
       'gemini-3.5-flash',
       'gemini-3.5-flash-lite'
-    ];
+    ]));
 
     let data = null;
     let lastError = null;
 
     for (const currentModel of fallbackModels) {
-      const payload = { contents };
+      const payload = { 
+        contents,
+        // Pinapabilis ang tugon sa pamamagitan ng pag-disable sa deep reasoning overhead
+        generationConfig: {
+          thinkingConfig: {
+            thinkingBudget: 0
+          }
+        }
+      };
+
       if (webSearch) {
         payload.tools = [{ google_search: {} }];
       }
 
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
       
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      try {
+        const response = await fetchWithTimeout(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }, 12000); // Max 12s bawat model try
 
-      data = await response.json();
+        data = await response.json();
 
-      if (!data.error) {
-        lastError = null;
-        break;
-      } else {
-        lastError = data.error.message;
+        if (!data.error) {
+          lastError = null;
+          break;
+        } else {
+          lastError = data.error.message;
+        }
+      } catch (err) {
+        lastError = err.message || 'Fetch timeout / network error';
+        console.warn(`Model ${currentModel} timed out or failed. Trying next...`);
       }
     }
 
