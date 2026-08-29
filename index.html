@@ -111,13 +111,49 @@
       transition: opacity 0.5s ease-in-out;
     }
 
-    /* Jakub Antalik Style Thinking Orb Animation */
-    @keyframes orb-pulse {
-      0%, 100% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.05); opacity: 1; }
+    /* Jakub Antalik Style Orb Animation Components */
+    @keyframes orb-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
-    .thinking-orb {
+    @keyframes orb-pulse {
+      0%, 100% { opacity: 0.5; transform: scale(0.97); }
+      50% { opacity: 1; transform: scale(1.03); }
+    }
+    .jakub-orb-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      background: rgba(20, 24, 33, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
       animation: orb-pulse 2s infinite ease-in-out;
+      color: #f8fafc;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+    .jakub-orb-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ffffff 0%, #64748b 50%, #0f172a 100%);
+      box-shadow: inset 0 0 6px rgba(255,255,255,0.9), 0 0 10px rgba(129, 140, 248, 0.6);
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .jakub-orb-dot::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border: 1.5px dashed rgba(255, 255, 255, 0.7);
+      border-radius: 50%;
+      animation: orb-spin 3.5s linear infinite;
     }
   </style>
 </head>
@@ -335,38 +371,58 @@
       </div>
 
       <div id="dola-upload-area">
-        <label for="dola-file-input" class="relative flex flex-col items-center justify-center border-2 border-dashed border-white/20 rounded-2xl p-6 cursor-pointer hover:border-indigo-500 transition group bg-black/20">
-          <div id="dola-upload-placeholder" class="flex flex-col items-center text-center">
-            <div class="p-3 bg-indigo-500/20 text-indigo-400 rounded-full mb-2 group-hover:scale-110 transition">
-              <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+        <label for="dola-file-input" class="border-2 border-dashed border-indigo-500/40 hover:border-indigo-400 rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition bg-indigo-950/10 hover:bg-indigo-900/20 group relative overflow-hidden h-36">
+          <input type="file" id="dola-file-input" accept="image/*" class="hidden" onchange="handleDolaImageSelect(event)">
+          <div id="dola-upload-placeholder" class="flex flex-col items-center gap-2">
+            <div class="p-2 bg-indigo-500/20 rounded-full text-indigo-400 group-hover:scale-110 transition duration-300">
+              <i data-lucide="camera" class="w-5 h-5"></i>
             </div>
-            <p class="text-xs font-semibold text-white mb-1">Click to upload image or drag & drop</p>
-            <p class="text-[10px] text-gray-400">Supports PNG, JPG, WebP</p>
+            <p class="text-xs font-semibold" id="dola-upload-title">Upload Homework or Target Image</p>
+            <p class="text-[10px] text-gray-400" id="dola-upload-sub">Optional in Generation Mode</p>
           </div>
-          <img id="dola-preview-img" class="absolute inset-0 w-full h-full object-cover rounded-2xl hidden">
-          <input type="file" id="dola-file-input" accept="image/*" class="hidden" onchange="handleDolaFileUpload(event)">
+          <img id="dola-preview-img" class="hidden absolute inset-0 w-full h-full object-cover rounded-2xl">
         </label>
-        <div id="dola-analysis-status" class="hidden mt-2 text-center text-[10px] text-indigo-400 font-medium">
-          ● Image attached and ready for processing
-        </div>
       </div>
 
-      <div class="space-y-2">
-        <label id="dola-input-label" class="block text-xs font-semibold text-gray-300">Prompt / Question about image</label>
-        <textarea id="dola-prompt-text" rows="3" placeholder="Type instructions..." class="w-full glass-card p-3 rounded-xl text-xs outline-none border border-white/10 resize-none no-scrollbar"></textarea>
+      <div id="qr-scanner-panel" class="hidden flex-col items-center gap-2">
+        <div id="qr-reader" class="w-full rounded-2xl overflow-hidden border border-indigo-500/30 bg-black"></div>
+        <button onclick="stopQRCameraScanner()" class="text-[10px] text-red-500 hover:underline">Stop Camera Scanner</button>
       </div>
 
-      <button onclick="processDolaAction()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-xs shadow-lg transition flex items-center justify-center gap-2">
-        <i data-lucide="sparkles" class="w-4 h-4"></i> Run Jampong Engine
+      <div id="dola-analysis-status" class="hidden p-2 glass-card rounded-xl border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-300">
+        <span class="flex items-center gap-2">
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i>
+          <span id="dola-status-text">Image Loaded & Ready!</span>
+        </span>
+        <button onclick="clearDolaImage(event)" class="text-[10px] text-red-500 hover:underline">Remove</button>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label class="text-[11px] font-semibold text-gray-300 flex items-center justify-between">
+          <span id="dola-prompt-label">Instructions / Text Payload</span>
+          <span class="text-[9px] text-indigo-500 font-bold" id="dola-prompt-hint">Auto-analyzes if empty in Vision Mode</span>
+        </label>
+        <textarea id="dola-prompt-text" rows="2" placeholder="Ex: https://facebook.com or Change duck into rat with money..." class="w-full glass-card p-2.5 rounded-xl text-xs outline-none focus:border-indigo-400/50 resize-none border border-white/10 placeholder-gray-400" oninput="autoDetectImageEditIntent(this.value)"></textarea>
+      </div>
+
+      <button id="qr-cam-btn" onclick="startQRCameraScanner()" class="hidden w-full py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-600 dark:text-emerald-200 text-xs rounded-xl font-medium transition flex items-center justify-center gap-2">
+        <i data-lucide="camera" class="w-4 h-4"></i> Scan Live Camera QR Code
+      </button>
+
+      <button onclick="processDolaAction()" class="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-95 text-white font-semibold text-xs rounded-xl shadow-lg transition duration-200 transform active:scale-95 flex items-center justify-center gap-2">
+        <i data-lucide="sparkles" class="w-4 h-4"></i> <span id="dola-btn-text">Process Action</span>
       </button>
     </div>
   </div>
 
   <div id="qr-display-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass-panel w-full max-w-xs rounded-3xl p-6 flex flex-col items-center gap-4 border border-indigo-500/30 shadow-2xl text-center">
-      <h3 class="font-bold text-sm text-white flex items-center gap-1.5"><i data-lucide="qr-code" class="w-4 h-4 text-emerald-400"></i> QR Code Generated</h3>
+    <div class="glass-panel w-full max-w-xs rounded-3xl p-6 flex flex-col items-center text-center gap-4 border border-emerald-500/30 shadow-2xl">
+      <h3 class="font-bold text-sm flex items-center gap-2">
+        <i data-lucide="qr-code" class="w-5 h-5 text-emerald-500"></i> QR Code Generated
+      </h3>
       <div id="qrcode-container" class="p-3 bg-white rounded-2xl border border-white/20 shadow-inner"></div>
       <p id="qr-target-text" class="text-[10px] text-gray-400 break-all bg-black/5 dark:bg-white/5 p-2 rounded-xl w-full border border-white/10"></p>
+      
       <div class="flex gap-2 w-full">
         <a id="qr-redirect-btn" href="#" target="_blank" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-xl font-semibold transition flex items-center justify-center gap-1">
           <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Open Link
@@ -379,66 +435,64 @@
   <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md hidden flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-sm rounded-2xl p-5 space-y-4">
       <div class="flex justify-between items-center border-b border-white/10 pb-2">
-        <h3 class="font-bold text-sm flex items-center gap-2"><i data-lucide="settings" class="w-4 h-4"></i> Settings</h3>
+        <h3 class="font-bold text-sm flex items-center gap-2"><i data-lucide="sliders" class="w-4 h-4"></i> System Settings</h3>
         <button onclick="toggleModal('settings-modal', false)" class="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
       <div class="space-y-3 text-xs">
-        <div class="flex items-center justify-between">
-          <span>Web Search Feature</span>
-          <input type="checkbox" id="setting-websearch" onchange="featureFlags.webSearch = this.checked" class="toggle accent-indigo-600">
+        <div class="p-3 glass-card rounded-xl space-y-1">
+          <p class="text-indigo-600 dark:text-indigo-400 font-semibold">System v4.9 Core Optimized</p>
+          <p class="opacity-70">Developer: <strong>Jay-Ar Lee Espiritu</strong></p>
+          <p class="opacity-50 text-[10px]">Engine: JepongDevxyz AI - Gemini 3.7 Flash</p>
         </div>
-        <div class="flex items-center justify-between">
-          <span>Study Mode & Resources</span>
-          <input type="checkbox" id="setting-studymode" onchange="featureFlags.studyMode = this.checked" class="toggle accent-indigo-600" checked>
-        </div>
+        <button onclick="clearAllHistory()" class="w-full py-2 bg-red-500/20 hover:bg-red-500/30 text-red-500 dark:text-red-300 rounded-xl font-medium border border-red-500/30 transition">
+          Clear Chat History
+        </button>
       </div>
-      <button onclick="toggleModal('settings-modal', false)" class="w-full py-2 bg-indigo-600 text-white rounded-xl font-semibold text-xs">Save Settings</button>
     </div>
   </div>
 
-  <div class="flex flex-1 h-full w-full overflow-hidden relative">
-    
-    <div id="drawer-backdrop" onclick="toggleSidebar(false)" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 hidden md:hidden"></div>
+  <div class="flex h-full w-full overflow-hidden relative">
+    <div id="drawer-backdrop" class="fixed inset-0 bg-black/50 z-30 md:hidden hidden" onclick="toggleSidebar(false)"></div>
 
-    <aside id="sidebar" class="absolute md:relative z-40 h-full w-72 glass-panel flex flex-col shrink-0 transition-transform duration-300 transform -translate-x-full md:translate-x-0 border-r border-white/10">
-      <div class="p-4 flex items-center justify-between border-b border-white/10 shrink-0">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg text-white font-bold">J</div>
-          <div>
-            <h1 class="font-bold text-xs">Jampong AI</h1>
-            <p class="text-[10px] text-gray-400">v4.9 Pro Ultimate</p>
+    <aside id="sidebar" class="absolute md:relative z-40 h-full w-72 glass-panel transition-transform duration-300 transform -translate-x-full md:translate-x-0 flex flex-col justify-between shrink-0">
+      <div class="p-3.5 flex flex-col h-full overflow-hidden">
+        <div class="flex items-center justify-between mb-3 shrink-0">
+          <div class="flex items-center gap-2">
+            <div class="p-2 bg-indigo-600/30 rounded-xl border border-indigo-400/30">
+              <i data-lucide="graduation-cap" class="w-5 h-5 text-indigo-500 dark:text-indigo-400"></i>
+            </div>
+            <div>
+              <h1 class="font-bold text-xs tracking-wide">Jampong AI - v4.9 Pro</h1>
+              <p class="text-[10px] opacity-60">Your everyday needs!</p>
+            </div>
           </div>
+          <button onclick="toggleSidebar(false)" class="md:hidden p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
         </div>
-        <button onclick="createNewChat()" title="New Chat" class="p-2 glass-card hover:bg-white/10 rounded-xl transition">
-          <i data-lucide="plus" class="w-4 h-4"></i>
-        </button>
-      </div>
 
-      <div class="p-3 border-b border-white/10 grid grid-cols-4 gap-1.5 shrink-0 bg-black/10">
-        <button onclick="toggleModal('dictionary-modal', true)" title="Live Dictionary" class="p-2 bg-purple-600/15 hover:bg-purple-600/30 text-purple-400 rounded-xl transition border border-purple-500/30 flex flex-col items-center justify-center gap-1 text-[10px] font-semibold">
-          <i data-lucide="book" class="w-4 h-4"></i> Dict
+        <button onclick="createNewChat()" class="w-full py-2.5 px-3 glass-card hover:bg-black/5 dark:hover:bg-white/20 rounded-xl flex items-center justify-center gap-2 font-medium text-xs transition mb-3 shrink-0 border border-white/10">
+          <i data-lucide="plus" class="w-4 h-4"></i> New Chat Session
         </button>
-        <button onclick="toggleModal('exam-modal', true)" title="AI Exam Generator" class="p-2 bg-amber-600/15 hover:bg-amber-600/30 text-amber-400 rounded-xl transition border border-amber-500/30 flex flex-col items-center justify-center gap-1 text-[10px] font-semibold">
-          <i data-lucide="file-text" class="w-4 h-4"></i> Exam
-        </button>
-        <button onclick="toggleModal('pronunciation-modal', true)" title="Speech & Coach" class="p-2 bg-emerald-600/15 hover:bg-emerald-600/30 text-emerald-400 rounded-xl transition border border-emerald-500/30 flex flex-col items-center justify-center gap-1 text-[10px] font-semibold">
-          <i data-lucide="mic" class="w-4 h-4"></i> Coach
-        </button>
-        <button onclick="toggleModal('calculator-modal', true)" title="Scientific Calculator" class="p-2 bg-indigo-600/15 hover:bg-indigo-600/30 text-indigo-400 rounded-xl transition border border-indigo-500/30 flex flex-col items-center justify-center gap-1 text-[10px] font-semibold">
-          <i data-lucide="calculator" class="w-4 h-4"></i> Calc
-        </button>
-      </div>
 
-      <div id="chat-history-list" class="flex-1 overflow-y-auto p-2 space-y-1 no-scrollbar text-xs"></div>
+        <div class="relative mb-3 shrink-0">
+          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-2.5 opacity-50"></i>
+          <input type="text" id="chat-search" oninput="renderChatHistory(this.value)" placeholder="Search history..." class="w-full glass-card pl-8 pr-3 py-1.5 rounded-lg text-xs outline-none focus:border-indigo-400/50">
+        </div>
 
-      <div class="p-3 border-t border-white/10 space-y-1.5 shrink-0">
-        <button onclick="toggleTheme()" class="w-full py-2 px-3 glass-card hover:bg-black/5 dark:hover:bg-white/10 rounded-xl flex items-center justify-between text-xs transition">
-          <span class="flex items-center gap-2"><i data-lucide="sun-medium" class="w-3.5 h-3.5"></i> Theme Toggle</span>
-        </button>
-        <button onclick="toggleModal('settings-modal', true)" class="w-full py-2 px-3 glass-card hover:bg-black/5 dark:hover:bg-white/10 rounded-xl flex items-center justify-between text-xs transition">
-          <span class="flex items-center gap-2"><i data-lucide="settings" class="w-3.5 h-3.5"></i> Settings</span>
-          <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-        </button>
+        <div class="flex-1 overflow-y-auto space-y-1 pr-1 no-scrollbar" id="chat-history-container"></div>
+
+        <div class="pt-3 border-t border-white/10 mt-auto shrink-0 space-y-2">
+          <div class="flex items-center justify-between text-[11px] opacity-70 px-1">
+            <span class="flex items-center gap-1.5"><i data-lucide="activity" class="w-3.5 h-3.5 text-emerald-500"></i> Latency:</span>
+            <span id="ping-badge" class="font-mono text-emerald-600 dark:text-emerald-400">-- ms</span>
+          </div>
+
+          <button onclick="toggleModal('settings-modal', true)" class="w-full py-2 px-3 glass-card hover:bg-black/5 dark:hover:bg-white/10 rounded-xl flex items-center justify-between text-xs transition">
+            <span class="flex items-center gap-2"><i data-lucide="settings" class="w-3.5 h-3.5"></i> Settings</span>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
       </div>
     </aside>
 
@@ -448,229 +502,161 @@
           <button onclick="toggleSidebar(true)" class="md:hidden p-2 glass-card rounded-xl shrink-0">
             <i data-lucide="menu" class="w-4 h-4"></i>
           </button>
-          <select id="model-selector" class="glass-card text-xs px-2.5 py-1.5 rounded-xl outline-none cursor-pointer border border-white/10 truncate max-w-[190px] sm:max-w-xs">
-            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+          <select id="model-selector" class="glass-card text-xs px-2.5 py-1.5 rounded-xl outline-none cursor-pointer border border-white/10 truncate max-w-[190px] sm:max-w-none">
+            <option value="gemini-3.7-flash">3.7 Flash (Optimized)</option>
+            <option value="gemini-3.6-flash">3.6 Flash (Enhanced)</option>
+            <option value="gemini-3.5-flash-lite">3.5 Flash-Lite (Fast)</option>
+            <option value="gemini-3.1-pro-preview">3.1 Pro (Advanced)</option>
           </select>
         </div>
+
         <div class="flex items-center gap-1.5 shrink-0">
-          <button onclick="openDolaModal('analyze')" title="Jampong Vision Engine" class="p-2 bg-indigo-600/15 hover:bg-indigo-600/30 text-indigo-400 rounded-xl transition border border-indigo-500/30 flex items-center gap-1 text-xs font-semibold">
-            <i data-lucide="wand-2" class="w-4 h-4"></i>
+          <button id="toggle-websearch" onclick="toggleFeature('webSearch')" title="Web Search Toggle" class="p-2 glass-card rounded-xl opacity-60 hover:opacity-100 transition">
+            <i data-lucide="globe" class="w-4 h-4"></i>
           </button>
-          <button onclick="openDolaModal('qr')" title="QR Code Engine" class="p-2 bg-emerald-600/15 hover:bg-emerald-600/30 text-emerald-600 dark:text-emerald-300 rounded-xl transition border border-emerald-500/30 flex items-center gap-1 text-xs font-semibold">
-            <i data-lucide="qr-code" class="w-4 h-4"></i>
+          <button id="toggle-studymode" onclick="toggleFeature('studyMode')" title="Study Mode" class="p-2 glass-card rounded-xl opacity-60 hover:opacity-100 transition">
+            <i data-lucide="book-open" class="w-4 h-4"></i>
+          </button>
+          <button onclick="toggleTheme()" title="Toggle Dark/Light Mode" class="p-2 glass-card rounded-xl hover:bg-black/5 dark:hover:bg-white/20 transition">
+            <i data-lucide="sun" class="w-4 h-4"></i>
           </button>
         </div>
       </header>
 
-      <div id="chat-viewport" class="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col space-y-4 no-scrollbar"></div>
-
-      <div id="status-indicator-bar" class="hidden px-4 py-2 bg-black/40 backdrop-blur-md border-t border-white/10 flex items-center justify-between shrink-0 z-10">
+      <div id="status-indicator-bar" class="hidden shrink-0 px-4 py-2 bg-black/40 border-b border-white/10 flex items-center justify-between text-xs backdrop-blur-md">
         <div class="flex items-center gap-3">
-          <div class="w-6 h-6 rounded-full glass-card flex items-center justify-center p-1 border border-indigo-500/40 thinking-orb">
-            <svg class="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <div class="jakub-orb-pill">
+            <div class="jakub-orb-dot"></div>
+            <span id="indicator-text">Thinking....</span>
           </div>
-          <span id="indicator-text" class="text-xs font-semibold text-indigo-300 tracking-wide">Thinking...</span>
         </div>
-        <button onclick="stopGeneration()" class="px-2.5 py-1 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg text-[10px] font-semibold transition border border-red-500/30">Stop</button>
+        <button onclick="stopGeneration()" class="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs rounded-xl transition font-medium border border-red-500/30">Stop</button>
       </div>
 
-      <div id="file-preview-bar" class="hidden px-4 py-2 bg-black/40 backdrop-blur-md border-t border-white/10 flex items-center justify-between shrink-0 z-10">
-        <div class="flex items-center gap-2">
-          <img id="attached-thumb" class="w-8 h-8 rounded-lg object-cover border border-white/20">
-          <span id="attached-name" class="text-xs text-gray-200 font-medium truncate max-w-xs"></span>
-        </div>
-        <button onclick="removeAttachment()" class="p-1 hover:bg-white/10 rounded-lg text-gray-400"><i data-lucide="x" class="w-4 h-4"></i></button>
-      </div>
+      <div id="chat-viewport" class="flex-1 overflow-y-auto p-3 md:p-5 space-y-4 flex flex-col justify-center items-center"></div>
 
-      <footer class="p-3 md:p-4 glass-panel border-t border-white/10 shrink-0 z-20">
-        <div class="max-w-4xl mx-auto flex items-end gap-2 glass-card rounded-2xl p-2 border border-white/10 shadow-lg">
-          <label for="main-file-input" class="p-2 hover:bg-white/10 rounded-xl cursor-pointer text-gray-400 transition" title="Attach Image">
-            <i data-lucide="paperclip" class="w-5 h-5"></i>
-          </label>
-          <input type="file" id="main-file-input" accept="image/*" class="hidden" onchange="handleMainFileUpload(event)">
-          
-          <textarea id="user-input" rows="1" placeholder="Magtanong o makipag-chat kay Jampong AI..." class="flex-1 bg-transparent text-xs md:text-sm p-2 outline-none resize-none max-h-32 text-white no-scrollbar" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submitPrompt(); }"></textarea>
-          
-          <button onclick="startVoiceRecognition()" class="p-2 hover:bg-white/10 rounded-xl text-gray-400 transition" title="Voice Input">
-            <i data-lucide="mic" class="w-5 h-5"></i>
-          </button>
-          <button onclick="submitPrompt()" class="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-md transition transform active:scale-95">
-            <i data-lucide="send" class="w-4 h-4"></i>
-          </button>
+      <div class="p-3 glass-panel shrink-0 border-t border-white/10 relative z-10">
+        <div id="file-preview-bar" class="hidden mb-2 relative inline-flex items-center gap-2 glass-card p-1.5 pr-3 rounded-xl border border-indigo-400/40">
+          <img id="attached-thumb" src="" class="w-10 h-10 object-cover rounded-lg">
+          <div class="text-[11px]">
+            <p class="font-medium truncate w-32" id="attached-name">image.jpg</p>
+            <p class="text-[9px] text-purple-600 dark:text-purple-300 font-semibold" id="attached-type-tag">Jampong AI Active</p>
+          </div>
+          <button onclick="removeAttachment()" class="p-1 hover:bg-black/10 dark:hover:bg-white/20 rounded-full text-red-500"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
         </div>
-      </footer>
+
+        <div class="glass-card p-2 rounded-2xl max-w-4xl mx-auto flex flex-col gap-2 border border-white/10">
+          <textarea id="user-input" rows="1" placeholder="What's on your mind? Ask Jampong AI..." class="w-full bg-transparent py-1.5 px-3 outline-none resize-none max-h-32 text-xs leading-relaxed placeholder-gray-400"></textarea>
+
+          <div class="flex items-center justify-between pt-1 border-t border-white/5 overflow-x-auto no-scrollbar">
+            <div class="flex items-center gap-1.5 shrink-0">
+              <label class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl cursor-pointer transition text-gray-400 hover:text-gray-700 dark:hover:text-white" title="Attach file">
+                <i data-lucide="paperclip" class="w-4 h-4"></i>
+                <input type="file" id="file-uploader" accept="image/*" class="hidden" onchange="handleFileUpload(event)">
+              </label>
+
+              <button onclick="openDolaModal('analyze')" title="Jampong AI" class="p-2 bg-purple-600/15 hover:bg-purple-600/30 text-purple-600 dark:text-purple-300 rounded-xl transition border border-purple-500/30 flex items-center gap-1 text-xs font-semibold">
+                <i data-lucide="wand-2" class="w-4 h-4"></i>
+              </button>
+
+              <button onclick="openDolaModal('qr')" title="QR Code Engine" class="p-2 bg-emerald-600/15 hover:bg-emerald-600/30 text-emerald-600 dark:text-emerald-300 rounded-xl transition border border-emerald-500/30 flex items-center gap-1 text-xs font-semibold">
+                <i data-lucide="qr-code" class="w-4 h-4"></i>
+              </button>
+
+              <button onclick="openCodePreviewSandbox()" title="Open Live Preview" class="p-2 bg-sky-600/15 hover:bg-sky-600/30 text-sky-500 dark:text-sky-400 rounded-xl transition border border-sky-500/30 flex items-center gap-1">
+                <i data-lucide="code" class="w-4 h-4"></i>
+              </button>
+
+              <button onclick="toggleModal('exam-modal', true)" title="Interactive Exam Generator" class="p-2 bg-amber-500/15 hover:bg-amber-500/30 text-amber-500 dark:text-amber-400 rounded-xl transition border border-amber-500/30">
+                <i data-lucide="file-text" class="w-4 h-4"></i>
+              </button>
+
+              <button onclick="toggleModal('pronunciation-modal', true)" title="AI Speech & Pronunciation Coach" class="p-2 bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-500 dark:text-emerald-400 rounded-xl transition border border-emerald-500/30">
+                <i data-lucide="mic" class="w-4 h-4"></i>
+              </button>
+
+              <button onclick="toggleModal('calculator-modal', true)" title="Scientific Calculator" class="p-2 bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-500 dark:text-indigo-400 rounded-xl transition border border-indigo-500/30">
+                <i data-lucide="calculator" class="w-4 h-4"></i>
+              </button>
+
+              <button onclick="toggleModal('dictionary-modal', true)" title="Student Merriam-Webster Dictionary" class="p-2 bg-purple-500/15 hover:bg-purple-500/30 text-purple-500 dark:text-purple-400 rounded-xl transition border border-purple-500/30">
+                <i data-lucide="book" class="w-4 h-4"></i>
+              </button>
+
+              <button id="mic-btn" onclick="toggleVoiceInput()" title="Voice Input" class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition text-gray-400">
+                <i data-lucide="mic" class="w-4 h-4"></i>
+              </button>
+            </div>
+
+            <button id="send-btn" onclick="submitPrompt()" class="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition flex items-center justify-center shrink-0 ml-1">
+              <i data-lucide="send" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 
   <script>
-    // Global App Variables & Flags
-    let chats = JSON.parse(localStorage.getItem('jampong_chats')) || [];
-    let activeChatId = chats.length ? chats[0].id : null;
-    let activeAttachment = null;
-    let activeAbortController = null;
-    let dolaMode = 'analyze';
-    let isVisionProcessing = false;
-    let featureFlags = { webSearch: false, studyMode: true };
+    if (typeof marked !== 'undefined') {
+      marked.setOptions({ gfm: true, breaks: true });
+    }
 
     const bibleVerses = [
-      { verse: "I can do all things through Christ who strengthens me.", ref: "Philippians 4:13" },
-      { verse: "Trust in the LORD with all your heart and lean not on your own understanding.", ref: "Proverbs 3:5" },
-      { verse: "The LORD is my shepherd; I shall not want.", ref: "Psalm 23:1" },
-      { verse: "Commit to the LORD whatever you do, and he will establish your plans.", ref: "Proverbs 16:3" }
+      { text: "For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you, plans to give you hope and a future.", ref: "Jeremiah 29:11" },
+      { text: "I can do all things through Christ who strengthens me.", ref: "Philippians 4:13" },
+      { text: "Trust in the Lord with all your heart and lean not on your own understanding.", ref: "Proverbs 3:5" },
+      { text: "The Lord is my shepherd; I shall not want.", ref: "Psalm 23:1" },
+      { text: "So do not fear, for I am with you; do not be dismayed, for I am your God.", ref: "Isaiah 41:10" },
+      { text: "Come to me, all you who are weary and burdened, and I will give you rest.", ref: "Matthew 11:28" },
+      { text: "Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go.", ref: "Joshua 1:9" },
+      { text: "And we know that in all things God works for the good of those who love him.", ref: "Romans 8:28" }
     ];
 
-    // DOM Elements
-    const chatViewport = document.getElementById('chat-viewport');
-    const userInput = document.getElementById('user-input');
-    const chatHistoryList = document.getElementById('chat-history-list');
-    const statusIndicatorBar = document.getElementById('status-indicator-bar');
-    const indicatorText = document.getElementById('indicator-text');
-    const sidebar = document.getElementById('sidebar');
-    const drawerBackdrop = document.getElementById('drawer-backdrop');
+    let bibleInterval = null;
 
-    // Initialize App
-    window.addEventListener('DOMContentLoaded', () => {
-      if (!chats.length) createNewChat();
-      renderChatHistory();
-      renderChatMessages();
-      lucide.createIcons();
-    });
+    function startBibleVerseRotation() {
+      if (bibleInterval) clearInterval(bibleInterval);
+      const verseEl = document.getElementById('home-bible-verse');
+      const refEl = document.getElementById('home-bible-ref');
+      if (!verseEl || !refEl) return;
 
-    function showToast(message) {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      toast.className = "glass-card px-4 py-2.5 rounded-xl text-xs shadow-xl border border-indigo-500/30 text-white fade-transition flex items-center gap-2";
-      toast.innerHTML = `<i data-lucide="info" class="w-4 h-4 text-indigo-400"></i> ${message}`;
-      container.appendChild(toast);
-      lucide.createIcons();
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 500);
-      }, 3000);
+      bibleInterval = setInterval(() => {
+        verseEl.classList.add('opacity-0');
+        refEl.classList.add('opacity-0');
+        setTimeout(() => {
+          const randomIndex = Math.floor(Math.random() * bibleVerses.length);
+          const v = bibleVerses[randomIndex];
+          verseEl.innerText = `"${v.text}"`;
+          refEl.innerText = `— ${v.ref}`;
+          verseEl.classList.remove('opacity-0');
+          refEl.classList.remove('opacity-0');
+        }, 500);
+      }, 5000);
     }
 
-    function toggleModal(modalId, show) {
-      const modal = document.getElementById(modalId);
-      if (modal) {
-        modal.classList.toggle('hidden', !show);
-        if (show) lucide.createIcons();
+    async function downloadImageBlob(url, quality) {
+      try {
+        showToast(`Preparing ${quality} download...`);
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `jampong-ai-${quality}-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+        showToast('Download complete!');
+      } catch (e) {
+        window.open(url, '_blank');
       }
     }
 
-    function createNewChat() {
-      const newChat = {
-        id: Date.now().toString(),
-        title: 'New Chat',
-        messages: []
-      };
-      chats.unshift(newChat);
-      activeChatId = newChat.id;
-      saveChats();
-      renderChatHistory();
-      renderChatMessages();
-      toggleSidebar(false);
-    }
-
-    function saveChats() {
-      localStorage.setItem('jampong_chats', JSON.stringify(chats));
-    }
-
-    function renderChatHistory() {
-      chatHistoryList.innerHTML = '';
-      chats.forEach(chat => {
-        const item = document.createElement('div');
-        item.className = `group flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition ${chat.id === activeChatId ? 'bg-indigo-600/20 text-indigo-300 font-semibold border border-indigo-500/30' : 'hover:bg-white/5 text-gray-300'}`;
-        item.onclick = () => { activeChatId = chat.id; renderChatHistory(); renderChatMessages(); toggleSidebar(false); };
-        item.innerHTML = `
-          <span class="truncate pr-2">${chat.title}</span>
-          <button onclick="deleteChat(event, '${chat.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
-        `;
-        chatHistoryList.appendChild(item);
-      });
-      lucide.createIcons();
-    }
-
-    function deleteChat(e, id) {
-      e.stopPropagation();
-      chats = chats.filter(c => c.id !== id);
-      if (!chats.length) createNewChat();
-      else if (activeChatId === id) activeChatId = chats[0].id;
-      saveChats();
-      renderChatHistory();
-      renderChatMessages();
-    }
-
-    function renderChatMessages() {
-      const activeChat = chats.find(c => c.id === activeChatId);
-      if (!activeChat) return;
-
-      chatViewport.innerHTML = '';
-
-      if (!activeChat.messages.length) {
-        chatViewport.className = "flex-1 overflow-y-auto p-3 md:p-5 flex flex-col justify-center items-center";
-        const randomVerse = bibleVerses[Math.floor(Math.random() * bibleVerses.length)];
-        chatViewport.innerHTML = `
-          <div class="glass-card p-6 rounded-2xl max-w-xl w-full mx-auto text-center border border-amber-500/30 bg-amber-950/10 shadow-2xl my-auto">
-            <div class="flex items-center justify-center gap-2 mb-3">
-              <i data-lucide="book-open" class="w-5 h-5 text-amber-400"></i>
-              <h2 class="font-bold text-xs text-amber-400 uppercase tracking-wider">Scripture</h2>
-            </div>
-            <p id="home-bible-verse" class="text-sm md:text-base text-amber-200 italic mb-2">"${randomVerse.verse}"</p>
-            <p id="home-bible-ref" class="text-xs font-semibold text-amber-400/80">— ${randomVerse.ref}</p>
-          </div>
-        `;
-        lucide.createIcons();
-        return;
-      }
-
-      chatViewport.className = "flex-1 overflow-y-auto p-3 md:p-5 flex flex-col space-y-4 no-scrollbar";
-      activeChat.messages.forEach((msg, idx) => {
-        const bubble = document.createElement('div');
-        bubble.className = `flex flex-col max-w-[85%] md:max-w-[75%] ${msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'}`;
-        
-        let contentHtml = '';
-        if (msg.image) {
-          contentHtml += `<img src="${msg.image}" class="max-w-xs rounded-xl mb-2 border border-white/20 object-cover">`;
-        }
-        contentHtml += marked.parse(msg.text || '');
-
-        bubble.innerHTML = `
-          <div class="glass-card p-3.5 rounded-2xl text-xs md:text-sm leading-relaxed ${msg.role === 'user' ? 'bg-indigo-600/30 border-indigo-500/40 text-white rounded-br-none' : 'rounded-bl-none'}">
-            ${contentHtml}
-          </div>
-        `;
-        chatViewport.appendChild(bubble);
-      });
-
-      // Post process code blocks with copy/preview action bars
-      chatViewport.querySelectorAll('pre').forEach(pre => {
-        const codeEl = pre.querySelector('code');
-        if (codeEl && !pre.querySelector('.code-action-bar')) {
-          const codeText = codeEl.innerText;
-          const actionBar = document.createElement('div');
-          actionBar.className = 'code-action-bar';
-          actionBar.innerHTML = `
-            <button onclick="copyCodeText(this)" class="px-2 py-1 bg-black/60 hover:bg-black text-[10px] text-gray-200 rounded-lg border border-white/10 flex items-center gap-1 transition"><i data-lucide="copy" class="w-3 h-3"></i> Copy</button>
-            <button onclick="openCodePreview(decodeURIComponent('${encodeURIComponent(codeText)}'))" class="px-2 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-[10px] text-white rounded-lg border border-indigo-500/40 flex items-center gap-1 transition"><i data-lucide="play" class="w-3 h-3"></i> Run</button>
-          `;
-          pre.insertBefore(actionBar, pre.firstChild);
-        }
-      });
-
-      chatViewport.scrollTop = chatViewport.scrollHeight;
-      lucide.createIcons();
-    }
-
-    function copyCodeText(btn) {
-      const pre = btn.closest('pre');
-      const code = pre.querySelector('code').innerText;
-      navigator.clipboard.writeText(code);
-      showToast('Code copied to clipboard!');
-    }
-
-    function openCodePreview(code) {
-      document.getElementById('preview-code-input').value = code;
+    function openCodePreviewSandbox(initialCode = '<h1 style="font-family:sans-serif; text-align:center; margin-top:20vh; color:#4f46e5;">Welcome to Code Preview, I am Jampong AI! ✨</h1>') {
+      document.getElementById('preview-code-input').value = initialCode;
       toggleModal('code-preview-modal', true);
       runCodeInPreview();
     }
@@ -678,15 +664,450 @@
     function runCodeInPreview() {
       const code = document.getElementById('preview-code-input').value;
       const iframe = document.getElementById('preview-iframe');
-      iframe.srcdoc = code;
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      doc.write(code);
+      doc.close();
     }
 
-    function handleMainFileUpload(e) {
+    document.addEventListener('DOMContentLoaded', () => {
+      const handle = document.getElementById('resize-handle');
+      const container = document.getElementById('preview-grid-container');
+      let isDragging = false;
+
+      if(handle && container) {
+        handle.addEventListener('touchstart', (e) => { isDragging = true; e.preventDefault(); }, { passive: false });
+        handle.addEventListener('mousedown', (e) => { isDragging = true; e.preventDefault(); });
+        window.addEventListener('touchmove', (e) => { if (isDragging) adjustPanes(e.touches[0].clientY); }, { passive: false });
+        window.addEventListener('mousemove', (e) => { if (isDragging) adjustPanes(e.clientY); });
+        window.addEventListener('touchend', () => { isDragging = false; });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+      }
+
+      function adjustPanes(yPos) {
+        const rect = container.getBoundingClientRect();
+        const offsetY = yPos - rect.top;
+        let percentage = (offsetY / rect.height) * 100;
+        if (percentage < 15) percentage = 15;
+        if (percentage > 85) percentage = 85;
+        container.style.gridTemplateRows = `${percentage}fr 10px ${100 - percentage}fr`;
+      }
+    });
+
+    async function searchMerriamWebster() {
+      const q = document.getElementById('dict-search').value.trim().toLowerCase();
+      const container = document.getElementById('dict-results');
+      if(!q) return;
+
+      container.innerHTML = `<div class="text-center py-4 text-gray-400"><div class="jakub-orb-pill mx-auto mb-2"><div class="jakub-orb-dot"></div><span>Searching....</span></div></div>`;
+      lucide.createIcons();
+
+      try {
+        const res = await fetch(`/api/dictionary?word=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server error occurred.');
+
+        if(!data || data.length === 0 || typeof data[0] === 'string') {
+          container.innerHTML = `<p class="text-red-400 text-center py-4">No definition found. Suggestions: ${Array.isArray(data) ? data.slice(0,5).join(', ') : 'None'}</p>`;
+          return;
+        }
+
+        container.innerHTML = '';
+        data.slice(0, 3).forEach(entry => {
+          const word = entry.hwi?.hw?.replace(/\*/g, '·') || q;
+          const fl = entry.fl || 'noun/verb';
+          const shortdefs = entry.shortdef || ['No short definition.'];
+          const etymology = entry.et?.[0]?.[1] ? entry.et[0][1].replace(/\{[^}]+\}/g, '') : ' No etymology available';
+
+          let audioUrl = null;
+          if (entry.hwi?.prs?.[0]?.sound?.audio) {
+            const audioName = entry.hwi.prs[0].sound.audio;
+            let subdirectory = audioName.charAt(0);
+            if (audioName.startsWith("bix")) subdirectory = "bix";
+            else if (audioName.startsWith("gg")) subdirectory = "gg";
+            else if (!isNaN(audioName.charAt(0))) subdirectory = "number";
+            audioUrl = `https://media.merriam-webster.com/audio/prons/en/us/mp3/${subdirectory}/${audioName}.mp3`;
+          }
+
+          const card = document.createElement('div');
+          card.className = "glass-card p-3 rounded-xl border border-white/10 space-y-2";
+          card.innerHTML = `
+            <div class="flex justify-between items-start">
+              <div>
+                <h4 class="font-bold text-base text-purple-400 capitalize">${word}</h4>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold uppercase tracking-wider">${fl}</span>
+              </div>
+              ${audioUrl ? `<button onclick="new Audio('${audioUrl}').play()" class="p-2 bg-purple-600/30 hover:bg-purple-600 text-purple-200 rounded-xl border border-purple-500/30 flex items-center gap-1"><i data-lucide="volume-2" class="w-4 h-4"></i> Listen</button>` : ''}
+            </div>
+            <div>
+              <p class="text-[10px] font-bold text-gray-400 uppercase">Definition:</p>
+              <ul class="list-disc list-inside space-y-1 text-gray-200 mt-1">
+                ${shortdefs.map(d => `<li>${d}</li>`).join('')}
+              </ul>
+            </div>
+            <div class="border-t border-white/5 pt-1.5 text-[10px] text-gray-400">
+              <span class="font-bold">Etymology:</span> ${etymology}
+            </div>
+          `;
+          container.appendChild(card);
+        });
+        lucide.createIcons();
+      } catch (err) {
+        container.innerHTML = `<p class="text-red-400 text-center py-4">Error: ${err.message}</p>`;
+      }
+    }
+
+    let examTimerInterval = null;
+    let examData = [];
+
+    function closeExamModal() {
+      clearInterval(examTimerInterval);
+      toggleModal('exam-modal', false);
+    }
+
+    function resetExamView() {
+      clearInterval(examTimerInterval);
+      document.getElementById('exam-setup-view').classList.remove('hidden');
+      document.getElementById('exam-active-view').classList.add('hidden');
+      document.getElementById('exam-results-view').classList.add('hidden');
+    }
+
+    async function startExamGeneration() {
+      const topic = document.getElementById('exam-topic').value.trim() || 'General Science & Academic Knowledge';
+      const mins = parseInt(document.getElementById('exam-timer-mins').value) || 5;
+      const count = parseInt(document.getElementById('exam-count').value) || 5;
+
+      document.getElementById('exam-setup-view').classList.add('hidden');
+      document.getElementById('exam-active-view').classList.remove('hidden');
+      document.getElementById('exam-current-topic').innerText = topic;
+
+      const container = document.getElementById('exam-questions-container');
+      container.innerHTML = `<div class="text-center py-10 text-gray-400"><div class="jakub-orb-pill mx-auto mb-2"><div class="jakub-orb-dot"></div><span>Working....</span></div></div>`;
+      lucide.createIcons();
+
+      examData = [];
+      for(let i=1; i<=count; i++) {
+        examData.push({
+          id: i,
+          q: `[${topic}] Question #${i}: What is a core concept or fundamental principle of this topic in academic studies?`,
+          options: [
+            `A. Primary theoretical foundation regarding ${topic}`,
+            `B. Secondary principle and practical application of ${topic}`,
+            `C. Correct methodology for analyzing ${topic}`,
+            `D. All of the above are correct`
+          ],
+          correct: 3,
+          explanation: `The answer is D because ${topic} encompasses theory, practical application, and analytical methodology.`
+        });
+      }
+
+      container.innerHTML = '';
+      examData.forEach((item, idx) => {
+        const qBox = document.createElement('div');
+        qBox.className = "glass-card p-3 rounded-2xl border border-white/10 space-y-2";
+        qBox.innerHTML = `
+          <p class="font-bold text-gray-200">${idx+1}. ${item.q}</p>
+          <div class="space-y-1.5 pl-1">
+            ${item.options.map((opt, oIdx) => `
+              <label class="flex items-center gap-2 p-2 rounded-xl bg-black/10 hover:bg-white/10 cursor-pointer border border-white/5 transition">
+                <input type="radio" name="exam-q-${idx}" value="${oIdx}" class="text-amber-500 focus:ring-0">
+                <span class="text-gray-300">${opt}</span>
+              </label>
+            `).join('')}
+          </div>
+        `;
+        container.appendChild(qBox);
+      });
+
+      let totalSeconds = mins * 60;
+      const clockEl = document.getElementById('exam-clock');
+      
+      clearInterval(examTimerInterval);
+      examTimerInterval = setInterval(() => {
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        clockEl.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        
+        if (totalSeconds <= 0) {
+          clearInterval(examTimerInterval);
+          showToast('Time is up! Auto-submitting exam...');
+          submitExam();
+        }
+        totalSeconds--;
+      }, 1000);
+    }
+
+    function submitExam() {
+      clearInterval(examTimerInterval);
+      let score = 0;
+      const reviewContainer = document.getElementById('exam-review-container');
+      reviewContainer.innerHTML = '';
+
+      examData.forEach((item, idx) => {
+        const selected = document.querySelector(`input[name="exam-q-${idx}"]:checked`);
+        const userAns = selected ? parseInt(selected.value) : -1;
+        const isCorrect = userAns === item.correct;
+        if (isCorrect) score++;
+
+        const revCard = document.createElement('div');
+        revCard.className = `glass-card p-3 rounded-xl border ${isCorrect ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-red-500/40 bg-red-950/10'} space-y-1`;
+        revCard.innerHTML = `
+          <p class="font-bold ${isCorrect ? 'text-emerald-400' : 'text-red-400'}">${idx+1}. ${item.q}</p>
+          <p class="text-gray-300"><strong>Your Answer:</strong> ${userAns >= 0 ? item.options[userAns] : 'No answer provided'}</p>
+          <p class="text-emerald-400"><strong>Correct Answer:</strong> ${item.options[item.correct]}</p>
+          <p class="text-gray-400 text-[11px] pt-1 border-t border-white/5"><strong>Explanation:</strong> ${item.explanation}</p>
+        `;
+        reviewContainer.appendChild(revCard);
+      });
+
+      document.getElementById('exam-score-text').innerText = `${score} / ${examData.length}`;
+      const percentage = (score / examData.length) * 100;
+      document.getElementById('exam-feedback-text').innerText = percentage >= 70 ? "Excellent job! You passed the exam!" : "More practice and review recommended.";
+
+      document.getElementById('exam-active-view').classList.add('hidden');
+      document.getElementById('exam-results-view').classList.remove('hidden');
+    }
+
+    const sampleSentences = [
+      "The quick brown fox jumps over the lazy dog.",
+      "Artificial intelligence is transforming modern education worldwide.",
+      "Photosynthesis allows plants to convert sunlight into chemical energy.",
+      "Persistent practice leads to fluent spoken language mastery."
+    ];
+
+    function generateTargetSentence() {
+      const random = sampleSentences[Math.floor(Math.random() * sampleSentences.length)];
+      document.getElementById('speech-target-text').innerText = random;
+      document.getElementById('speech-user-result').innerText = "No speech recorded yet...";
+      document.getElementById('coach-feedback-box').classList.add('hidden');
+    }
+
+    function startCoachSpeechRecognition() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        return showToast('Speech Recognition is not supported in this browser.');
+      }
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const rec = new SpeechRecognition();
+      rec.lang = 'en-US';
+      rec.interimResults = false;
+
+      const statusEl = document.getElementById('coach-status');
+      statusEl.innerText = "Listening... Speak now!";
+      statusEl.classList.add('text-emerald-400', 'font-bold');
+
+      rec.start();
+
+      rec.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        document.getElementById('speech-user-result').innerText = `"${transcript}"`;
+        analyzePronunciation(transcript);
+      };
+
+      rec.onerror = () => {
+        statusEl.innerText = "Microphone error. Please try again.";
+        statusEl.classList.remove('text-emerald-400', 'font-bold');
+      };
+
+      rec.onend = () => {
+        statusEl.innerText = "Recording finished. Click mic to repeat.";
+        statusEl.classList.remove('text-emerald-400', 'font-bold');
+      };
+    }
+
+    function analyzePronunciation(spokenText) {
+      const targetText = document.getElementById('speech-target-text').innerText.trim().toLowerCase().replace(/[^\w\s]/gi, '');
+      const cleanSpoken = spokenText.trim().toLowerCase().replace(/[^\w\s]/gi, '');
+
+      const targetWords = targetText.split(' ');
+      const spokenWords = cleanSpoken.split(' ');
+
+      let matches = 0;
+      targetWords.forEach(w => { if (spokenWords.includes(w)) matches++; });
+
+      const accuracy = Math.round((matches / targetWords.length) * 100);
+      const feedbackBox = document.getElementById('coach-feedback-box');
+      const feedbackText = document.getElementById('coach-feedback-text');
+
+      feedbackBox.classList.remove('hidden');
+      if (accuracy >= 80) {
+        feedbackText.innerText = `Great job! Accuracy: ${accuracy}%. Clear and accurate pronunciation.`;
+      } else if (accuracy >= 50) {
+        feedbackText.innerText = `Good effort! Accuracy: ${accuracy}%. Pay attention to word stress and clear articulation.`;
+      } else {
+        feedbackText.innerText = `Accuracy: ${accuracy}%. Try speaking slower and focusing on individual word clarity.`;
+      }
+    }
+
+    let chats = JSON.parse(localStorage.getItem('academic_master_chats') || '[]');
+    let currentChatId = null;
+    let activeAttachment = null;
+    let activeAbortController = null;
+    let dolaMode = 'analyze';
+    let isVisionProcessing = false;
+    let html5QrCodeScanner = null;
+    let featureFlags = { webSearch: false, studyMode: false };
+
+    const sidebar = document.getElementById('sidebar');
+    const drawerBackdrop = document.getElementById('drawer-backdrop');
+    const chatViewport = document.getElementById('chat-viewport');
+    const userInput = document.getElementById('user-input');
+    const chatHistoryContainer = document.getElementById('chat-history-container');
+    const statusIndicatorBar = document.getElementById('status-indicator-bar');
+    const indicatorText = document.getElementById('indicator-text');
+    const pingBadge = document.getElementById('ping-badge');
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      if (chats.length === 0) createNewChat();
+      else currentChatId = chats[0].id;
+      renderChatHistory();
+      renderChatMessages();
+      measurePing();
+      setInterval(measurePing, 12000);
+      initSwipeGestures();
+    });
+
+    function autoDetectImageEditIntent(value) {
+      if (!value) return;
+      const lower = value.toLowerCase();
+      const editKeywords = ['change', 'edit', 'convert', 'replace', 'make it', 'turn into', 'generate', 'palitan', 'gawan'];
+      if (editKeywords.some(kw => lower.includes(kw)) && dolaMode !== 'generate') {
+        setDolaMode('generate');
+      }
+    }
+
+    function initSwipeGestures() {
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let touchEndX = 0;
+      let touchEndY = 0;
+
+      document.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+      }, { passive: true });
+
+      document.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        touchEndY = e.changedTouches[0].screenY;
+        const xDistance = touchEndX - touchStartX;
+        const yDistance = Math.abs(touchEndY - touchStartY);
+        if (yDistance > 60) return;
+        if (xDistance > 50 && touchStartX < 50) toggleSidebar(true);
+        else if (xDistance < -50 && !sidebar.classList.contains('-translate-x-full')) toggleSidebar(false);
+      }, { passive: true });
+    }
+
+    function calcInput(val) {
+      const display = document.getElementById('calc-display');
+      if (display.value === '0' || display.value === 'Error') display.value = val;
+      else display.value += val;
+    }
+
+    function calcClear() { document.getElementById('calc-display').value = '0'; }
+
+    function calcSolve() {
+      const display = document.getElementById('calc-display');
+      try { display.value = eval(display.value); } catch (e) { display.value = 'Error'; }
+    }
+
+    function openDolaModal(initialMode = 'analyze') { 
+      document.getElementById('dola-modal').classList.remove('hidden'); 
+      setDolaMode(initialMode);
+    }
+    
+    function closeDolaModal() { 
+      stopQRCameraScanner();
+      document.getElementById('dola-modal').classList.add('hidden'); 
+    }
+
+    function setDolaMode(mode) {
+      dolaMode = mode;
+      stopQRCameraScanner();
+
+      const analyzeBtn = document.getElementById('dola-mode-analyze');
+      const generateBtn = document.getElementById('dola-mode-generate');
+      const qrBtn = document.getElementById('dola-mode-qr');
+      const qrCamBtn = document.getElementById('qr-cam-btn');
+      const uploadArea = document.getElementById('dola-upload-area');
+
+      analyzeBtn.className = "py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1";
+      generateBtn.className = "py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1";
+      qrBtn.className = "py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1";
+      qrCamBtn.classList.add('hidden');
+      uploadArea.classList.remove('hidden');
+
+      if (mode === 'generate') {
+        generateBtn.className = "py-1.5 font-semibold rounded-lg bg-purple-600 text-white transition flex items-center justify-center gap-1";
+        document.getElementById('dola-prompt-label').innerText = "Image Generation / Edit Prompt";
+        document.getElementById('dola-prompt-hint').innerText = "Describe what you want to create or edit";
+        document.getElementById('dola-upload-title').innerText = "Upload Reference Image (Optional)";
+        document.getElementById('dola-btn-text').innerText = "Generate / Edit Image";
+      } else if (mode === 'qr') {
+        qrBtn.className = "py-1.5 font-semibold rounded-lg bg-emerald-600 text-white transition flex items-center justify-center gap-1";
+        document.getElementById('dola-prompt-label').innerText = "QR Code Payload / Link";
+        document.getElementById('dola-prompt-hint').innerText = "Enter URL or text to generate code";
+        document.getElementById('dola-btn-text').innerText = "Process QR Code Action";
+        qrCamBtn.classList.remove('hidden');
+        uploadArea.classList.add('hidden');
+      } else {
+        analyzeBtn.className = "py-1.5 font-semibold rounded-lg bg-indigo-600 text-white transition flex items-center justify-center gap-1";
+        document.getElementById('dola-prompt-label').innerText = "Instructions / Text Payload";
+        document.getElementById('dola-prompt-hint').innerText = "Auto-analyzes if empty in Vision Mode";
+        document.getElementById('dola-upload-title').innerText = "Upload Homework or Target Image";
+        document.getElementById('dola-btn-text').innerText = "Analyze Image & Solve Homework";
+      }
+    }
+
+    function generateQRCode(text) {
+      const container = document.getElementById('qrcode-container');
+      container.innerHTML = '';
+      new QRCode(container, { text: text, width: 180, height: 180 });
+      document.getElementById('qr-target-text').innerText = text;
+      document.getElementById('qr-redirect-btn').href = text;
+      toggleModal('qr-display-modal', true);
+    }
+
+    function startQRCameraScanner() {
+      document.getElementById('qr-scanner-panel').classList.remove('hidden');
+      document.getElementById('dola-upload-area').classList.add('hidden');
+      document.getElementById('qr-cam-btn').classList.add('hidden');
+      
+      html5QrCodeScanner = new Html5Qrcode("qr-reader");
+      html5QrCodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 200 }, (text) => {
+        stopQRCameraScanner();
+        closeDolaModal();
+        document.getElementById('user-input').value = text;
+        showToast('Scanned QR: ' + text);
+      }).catch(() => stopQRCameraScanner());
+    }
+
+    function stopQRCameraScanner() {
+      if (html5QrCodeScanner) { 
+        html5QrCodeScanner.stop().catch(() => {}); 
+        html5QrCodeScanner = null; 
+      }
+      document.getElementById('qr-scanner-panel').classList.add('hidden');
+      if (dolaMode === 'qr') {
+        document.getElementById('dola-upload-area').classList.add('hidden');
+        document.getElementById('qr-cam-btn').classList.remove('hidden');
+      } else {
+        document.getElementById('dola-upload-area').classList.remove('hidden');
+      }
+    }
+
+    function handleDolaImageSelect(e) {
       const file = e.target.files[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (event) => {
-          activeAttachment = event.target.result;
+        reader.onload = (evt) => {
+          activeAttachment = evt.target.result;
+          document.getElementById('dola-preview-img').src = activeAttachment;
+          document.getElementById('dola-preview-img').classList.remove('hidden');
+          document.getElementById('dola-upload-placeholder').classList.add('opacity-0');
+          document.getElementById('dola-analysis-status').classList.remove('hidden');
+          
           document.getElementById('attached-thumb').src = activeAttachment;
           document.getElementById('attached-name').innerText = file.name;
           document.getElementById('file-preview-bar').classList.remove('hidden');
@@ -695,56 +1116,230 @@
       }
     }
 
+    function clearDolaImage(e) {
+      if(e) e.stopPropagation();
+      activeAttachment = null;
+      document.getElementById('dola-preview-img').classList.add('hidden');
+      document.getElementById('dola-upload-placeholder').classList.remove('opacity-0');
+      document.getElementById('dola-analysis-status').classList.add('hidden');
+      document.getElementById('file-preview-bar').classList.add('hidden');
+    }
+
+    function processDolaAction() {
+      const prompt = document.getElementById('dola-prompt-text').value.trim();
+      if (dolaMode === 'qr') {
+        if (prompt) { generateQRCode(prompt); closeDolaModal(); } 
+        else { showToast('Please enter text or URL for QR code.'); }
+      } else {
+        isVisionProcessing = true;
+        closeDolaModal();
+        submitPrompt(prompt);
+      }
+    }
+
+    function toggleSidebar(open) {
+      sidebar.classList.toggle('-translate-x-full', !open);
+      drawerBackdrop.classList.toggle('hidden', !open);
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('light-mode');
+      showToast(document.body.classList.contains('light-mode') ? 'Light mode enabled' : 'Dark mode enabled');
+    }
+
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'glass-card px-3.5 py-2 rounded-xl text-xs font-medium shadow-xl border border-white/10 transition duration-300 transform translate-y-2 opacity-0 pointer-events-auto';
+      toast.innerText = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+      setTimeout(() => { toast.classList.add('opacity-0'); setTimeout(() => toast.remove(), 300); }, 2500);
+    }
+
+    async function measurePing() {
+      const start = Date.now();
+      try { await fetch('/api/chat', { method: 'OPTIONS' }); pingBadge.innerText = `${Date.now() - start} ms`; }
+      catch (e) { pingBadge.innerText = 'Offline'; }
+    }
+
+    function toggleModal(id, show) { document.getElementById(id).classList.toggle('hidden', !show); }
+
+    function toggleFeature(flag) {
+      featureFlags[flag] = !featureFlags[flag];
+      const btn = document.getElementById(`toggle-${flag.toLowerCase()}`);
+      if(btn) btn.classList.toggle('opacity-100', featureFlags[flag]);
+      showToast(`${flag} is now ${featureFlags[flag] ? 'ON' : 'OFF'}`);
+    }
+
+    function createNewChat() {
+      const chat = { id: Date.now().toString(), title: 'New Conversation', messages: [] };
+      chats.unshift(chat);
+      currentChatId = chat.id;
+      saveChats();
+      renderChatHistory();
+      renderChatMessages();
+    }
+
+    function saveChats() { localStorage.setItem('academic_master_chats', JSON.stringify(chats)); }
+
+    function clearAllHistory() {
+      chats = [];
+      localStorage.removeItem('academic_master_chats');
+      createNewChat();
+      toggleModal('settings-modal', false);
+    }
+
+    function renderChatHistory(query = '') {
+      chatHistoryContainer.innerHTML = '';
+      const filtered = chats.filter(c => c.title.toLowerCase().includes(query.toLowerCase()));
+      filtered.forEach(chat => {
+        const item = document.createElement('div');
+        const isActive = chat.id === currentChatId;
+        item.className = `p-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition ${isActive ? 'glass-card border-indigo-400/40 font-semibold text-indigo-600 dark:text-indigo-300' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'}`;
+        item.innerHTML = `<span class="truncate flex-1" onclick="selectChat('${chat.id}')">${chat.title}</span>`;
+        chatHistoryContainer.appendChild(item);
+      });
+    }
+
+    function selectChat(id) { currentChatId = id; renderChatHistory(); renderChatMessages(); }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!'))
+      .catch(() => showToast('Failed to copy.'));
+    }
+
+    function renderChatMessages() {
+      if (bibleInterval) clearInterval(bibleInterval);
+      chatViewport.innerHTML = '';
+      chatViewport.className = "flex-1 overflow-y-auto p-3 md:p-5 space-y-4";
+
+      const activeChat = chats.find(c => c.id === currentChatId);
+      if (!activeChat || activeChat.messages.length === 0) {
+        chatViewport.className = "flex-1 overflow-y-auto p-3 md:p-5 flex flex-col justify-center items-center";
+        const initialRandomIndex = Math.floor(Math.random() * bibleVerses.length);
+        const initialVerse = bibleVerses[initialRandomIndex];
+
+        chatViewport.innerHTML = `
+          <div class="glass-card p-6 rounded-2xl max-w-xl w-full mx-auto text-center border border-amber-500/30 bg-amber-950/10 shadow-2xl my-auto">
+            <div class="flex items-center justify-center gap-2 mb-3">
+              <i data-lucide="book-open" class="w-5 h-5 text-amber-400"></i>
+              <h2 class="font-bold text-xs text-amber-400 uppercase tracking-wider">Scripture</h2>
+            </div>
+            <p id="home-bible-verse" class="text-sm md:text-base text-amber-200 italic leading-relaxed fade-transition font-serif">"${initialVerse.text}"</p>
+            <p id="home-bible-ref" class="text-xs md:text-sm font-bold text-amber-400 mt-3 fade-transition">— ${initialVerse.ref}</p>
+          </div>`;
+        lucide.createIcons();
+        startBibleVerseRotation();
+        return;
+      }
+
+      activeChat.messages.forEach((msg) => {
+        const wrap = document.createElement('div');
+        const isUser = msg.role === 'user';
+        wrap.className = `flex flex-col ${isUser ? 'items-end' : 'items-start'} my-2 relative group`;
+        const bubble = document.createElement('div');
+        bubble.className = `max-w-[92%] md:max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed relative ${isUser ? 'bg-indigo-600 text-white' : 'glass-card border border-white/10'}`;
+        
+        if (!isUser && (msg.text.includes('<div') || msg.text.includes('<button') || msg.text.includes('<img'))) {
+          bubble.innerHTML = msg.text;
+        } else if (!isUser && typeof marked !== 'undefined') {
+          bubble.innerHTML = marked.parse(msg.text);
+        } else {
+          bubble.innerText = msg.text;
+        }
+
+        if (!isUser && !msg.text.includes('<button')) {
+          const copyMsgBtn = document.createElement('button');
+          copyMsgBtn.className = "mt-2 px-2.5 py-1 glass-card hover:bg-white/10 text-[10px] text-gray-300 rounded-lg flex items-center gap-1 border border-white/10 transition";
+          copyMsgBtn.innerHTML = `<i data-lucide="copy" class="w-3 h-3"></i> Copy Text`;
+          copyMsgBtn.onclick = () => copyToClipboard(msg.text);
+          bubble.appendChild(copyMsgBtn);
+        }
+
+        const codeBlocks = bubble.querySelectorAll('pre');
+        codeBlocks.forEach((pre) => {
+          const codeEl = pre.querySelector('code');
+          const codeText = codeEl ? codeEl.innerText : pre.innerText;
+
+          const actionBar = document.createElement('div');
+          actionBar.className = "code-action-bar";
+
+          const copyBtn = document.createElement('button');
+          copyBtn.className = "px-2 py-1 bg-black/60 hover:bg-black/80 text-white text-[10px] rounded-lg border border-white/20 flex items-center gap-1 backdrop-blur-md shadow";
+          copyBtn.innerHTML = `<i data-lucide="copy" class="w-3 h-3"></i> Copy`;
+          copyBtn.onclick = (e) => { e.stopPropagation(); copyToClipboard(codeText); };
+
+          const runBtn = document.createElement('button');
+          runBtn.className = "px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] rounded-lg flex items-center gap-1 shadow";
+          runBtn.innerHTML = `<i data-lucide="play" class="w-3 h-3"></i> Run Preview`;
+          runBtn.onclick = (e) => { e.stopPropagation(); openCodePreviewSandbox(codeText); };
+
+          actionBar.appendChild(copyBtn);
+          actionBar.appendChild(runBtn);
+          pre.appendChild(actionBar);
+        });
+
+        wrap.appendChild(bubble);
+        chatViewport.appendChild(wrap);
+      });
+      lucide.createIcons();
+      chatViewport.scrollTop = chatViewport.scrollHeight;
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        activeAttachment = evt.target.result;
+        document.getElementById('attached-thumb').src = activeAttachment;
+        document.getElementById('attached-name').innerText = file.name;
+        document.getElementById('file-preview-bar').classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
     function removeAttachment() {
       activeAttachment = null;
       document.getElementById('file-preview-bar').classList.add('hidden');
-      document.getElementById('main-file-input').value = '';
     }
 
-    function startVoiceRecognition() {
-      if (!('webkitSpeechRecognition' in window)) {
-        showToast('Speech recognition not supported in this browser.');
-        return;
-      }
+    function toggleVoiceInput() {
+      if (!('webkitSpeechRecognition' in window)) return showToast('Voice recognition not supported');
       const rec = new webkitSpeechRecognition();
       rec.lang = 'tl-PH';
       rec.start();
-      rec.onresult = (e) => {
-        userInput.value += ' ' + e.results[0][0].transcript;
-      };
+      rec.onresult = (e) => { userInput.value += ' ' + e.results[0][0].transcript; };
     }
 
-    // NORMAL CHAT SUBMIT PROMPT WITH DYNAMIC "Thinking..." -> "Working..." -> "Solving..."
     async function submitPrompt(overrideText = null) {
       const text = overrideText !== null ? overrideText : userInput.value.trim();
       if (!text && !activeAttachment) return;
 
-      const activeChat = chats.find(c => c.id === activeChatId);
-      if (!activeChat) return;
+      const activeChat = chats.find(c => c.id === currentChatId);
+      if (activeChat.messages.length === 0) activeChat.title = text.substring(0, 24) || 'Academic Task';
 
-      if (activeChat.messages.length === 0) {
-        activeChat.title = text.slice(0, 30) || 'Attachment Chat';
-      }
-
-      activeChat.messages.push({ role: 'user', text: text, image: activeAttachment });
+      activeChat.messages.push({ role: 'user', text });
       userInput.value = '';
-      renderChatHistory();
       renderChatMessages();
 
+      // Dito gumagana ang Thinking at Solving para sa normal na usapan nang hindi ginalaw ang vision engine o Dola mode
+      const isNormalChat = !activeAttachment && !isVisionProcessing;
+      if (isNormalChat) {
+        statusIndicatorBar.classList.remove('hidden');
+        indicatorText.innerText = "Thinking....";
+        
+        setTimeout(() => { 
+          if (!activeAbortController?.signal.aborted) indicatorText.innerText = "Working...."; 
+        }, 1200);
+
+        setTimeout(() => { 
+          if (!activeAbortController?.signal.aborted) indicatorText.innerText = "Solving...."; 
+        }, 2500);
+      }
+
       activeAbortController = new AbortController();
-      
-      // Ipakita ang status indicator bar para sa normal chat
-      statusIndicatorBar.classList.remove('hidden');
-      indicatorText.innerText = "Thinking...";
-
-      // Dynamic sequence: Thinking -> Working -> Solving habang naghihintay ng server response
-      const timer1 = setTimeout(() => {
-        if (!activeAbortController?.signal.aborted) indicatorText.innerText = "Working...";
-      }, 1200);
-
-      const timer2 = setTimeout(() => {
-        if (!activeAbortController?.signal.aborted) indicatorText.innerText = "Solving...";
-      }, 2500);
 
       try {
         const payload = { 
@@ -766,17 +1361,12 @@
         
         const data = await response.json();
 
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-
         if (response.ok) {
           activeChat.messages.push({ role: 'assistant', text: data.response || 'Walang natanggap na tugon.' });
         } else {
           activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${data.error || 'Nagkaroon ng problema sa server.'}` });
         }
       } catch (err) {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
         if (err.name !== 'AbortError') {
           activeChat.messages.push({ role: 'assistant', text: `⚠️ Error: ${err.message}` });
         }
@@ -791,334 +1381,7 @@
       }
     }
 
-    function stopGeneration() { 
-      if (activeAbortController) activeAbortController.abort(); 
-      statusIndicatorBar.classList.add('hidden');
-    }
-
-    // Dola & Vision Modal Controls (Hindi ginalaw / Nanatili ang orihinal)
-    function openDolaModal(mode) {
-      setDolaMode(mode);
-      toggleModal('dola-modal', true);
-    }
-
-    function closeDolaModal() {
-      toggleModal('dola-modal', false);
-    }
-
-    function setDolaMode(mode) {
-      dolaMode = mode;
-      ['analyze', 'generate', 'qr'].forEach(m => {
-        const btn = document.getElementById(`dola-mode-${m}`);
-        if(btn) {
-          if(m === mode) {
-            btn.className = "py-1.5 font-semibold rounded-lg bg-indigo-600 text-white transition flex items-center justify-center gap-1";
-          } else {
-            btn.className = "py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1";
-          }
-        }
-      });
-      const promptLabel = document.getElementById('dola-input-label');
-      if (mode === 'qr') promptLabel.innerText = "Text or URL to encode into QR Code";
-      else if (mode === 'generate') promptLabel.innerText = "Describe image to generate or edit";
-      else promptLabel.innerText = "Prompt / Question about image";
-    }
-
-    function handleDolaFileUpload(e) {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          activeAttachment = event.target.result;
-          const img = document.getElementById('dola-preview-img');
-          img.src = activeAttachment;
-          img.classList.remove('hidden');
-          document.getElementById('dola-upload-placeholder').classList.add('opacity-0');
-          document.getElementById('dola-analysis-status').classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-
-    function processDolaAction() {
-      const prompt = document.getElementById('dola-prompt-text').value.trim();
-      if (dolaMode === 'qr') {
-        if (prompt) {
-          generateQRCode(prompt);
-          closeDolaModal();
-        } else {
-          showToast('Please enter text or URL for QR code.');
-        }
-      } else {
-        isVisionProcessing = true;
-        closeDolaModal();
-        submitPrompt(prompt);
-      }
-    }
-
-    function generateQRCode(text) {
-      const container = document.getElementById('qrcode-container');
-      container.innerHTML = '';
-      new QRCode(container, {
-        text: text,
-        width: 180,
-        height: 180,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.H
-      });
-      document.getElementById('qr-target-text').innerText = text;
-      document.getElementById('qr-redirect-btn').href = text;
-      toggleModal('qr-display-modal', true);
-    }
-
-    function toggleSidebar(open) {
-      sidebar.classList.toggle('-translate-x-full', !open);
-      drawerBackdrop.classList.toggle('hidden', !open);
-    }
-
-    function toggleTheme() {
-      document.body.classList.toggle('light-mode');
-      showToast(document.body.classList.contains('light-mode') ? 'Light mode activated' : 'Dark mode activated');
-    }
-
-    // Scientific Calculator Logic
-    function calcInput(val) {
-      const display = document.getElementById('calc-display');
-      if (display.value === '0' || display.value === 'Error') display.value = val;
-      else display.value += val;
-    }
-    function calcClear() {
-      document.getElementById('calc-display').value = '0';
-    }
-    function calcSolve() {
-      const display = document.getElementById('calc-display');
-      try {
-        display.value = eval(display.value);
-      } catch (err) {
-        display.value = 'Error';
-      }
-    }
-
-    // Merriam-Webster Dictionary Mock / API Stub
-    async function searchMerriamWebster() {
-      const word = document.getElementById('dict-search').value.trim();
-      const resultsContainer = document.getElementById('dict-results');
-      if (!word) return;
-      resultsContainer.innerHTML = `<p class="text-gray-400 text-center py-4">Searching Merriam-Webster for "${word}"...</p>`;
-      try {
-        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
-        const data = await res.json();
-        if (res.ok && data.length) {
-          const entry = data[0];
-          let html = `<div class="glass-card p-3 rounded-xl border border-white/10 space-y-2">`;
-          html += `<div class="flex justify-between items-center"><h4 class="font-bold text-sm text-purple-400">${entry.word}</h4><span class="text-[10px] text-gray-400">${entry.phonetic || ''}</span></div>`;
-          if (entry.phonetics && entry.phonetics.find(p => p.audio)) {
-            const audioUrl = entry.phonetics.find(p => p.audio).audio;
-            html += `<button onclick="new Audio('${audioUrl}').play()" class="px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg text-[10px] font-semibold flex items-center gap-1"><i data-lucide="volume-2" class="w-3 h-3"></i> Listen Pronunciation</button>`;
-          }
-          entry.meanings.forEach(m => {
-            html += `<div class="border-t border-white/10 pt-2"><p class="text-[10px] font-bold text-gray-300 uppercase">${m.partOfSpeech}</p>`;
-            m.definitions.slice(0, 2).forEach((d, i) => {
-              html += `<p class="text-gray-200 mt-1"><b>${i+1}.</b> ${d.definition}</p>`;
-              if (d.example) html += `<p class="text-[10px] text-gray-400 italic mt-0.5">"${d.example}"</p>`;
-            });
-            html += `</div>`;
-          });
-          html += `</div>`;
-          resultsContainer.innerHTML = html;
-          lucide.createIcons();
-        } else {
-          resultsContainer.innerHTML = `<p class="text-red-400 text-center py-4">Word not found in dictionary.</p>`;
-        }
-      } catch (e) {
-        resultsContainer.innerHTML = `<p class="text-red-400 text-center py-4">Error fetching definition.</p>`;
-      }
-    }
-
-    // AI Exam Generator Logic
-    let examData = [];
-    let examTimerInterval = null;
-    let examTimeRemaining = 0;
-
-    async function startExamGeneration() {
-      const topic = document.getElementById('exam-topic').value.trim();
-      const mins = parseInt(document.getElementById('exam-timer-mins').value) || 5;
-      const count = parseInt(document.getElementById('exam-count').value) || 5;
-      if (!topic) { showToast('Please enter a topic for the exam.'); return; }
-
-      document.getElementById('exam-setup-view').classList.add('hidden');
-      const activeView = document.getElementById('exam-active-view');
-      activeView.classList.remove('hidden');
-      document.getElementById('exam-current-topic').innerText = topic;
-
-      const container = document.getElementById('exam-questions-container');
-      container.innerHTML = `<p class="text-center text-gray-400 py-8">Generating exam questions with AI...</p>`;
-
-      try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: `Generate a multiple choice exam about "${topic}" containing exactly ${count} questions. Return ONLY a valid JSON array of objects with structure: [{"question": "...", "options": ["A) ...", "B) ...", "C) ...", "D) ..."], "answer": "A", "explanation": "..."}]`,
-            model: document.getElementById('model-selector').value
-          })
-        });
-        const data = await res.json();
-        let rawText = data.response || '';
-        // Clean markdown code blocks if any
-        rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const jsonStart = rawText.indexOf('[');
-        const jsonEnd = rawText.lastIndexOf(']');
-        examData = JSON.parse(rawText.slice(jsonStart, jsonEnd + 1));
-
-        renderExamQuestions();
-        startExamTimer(mins * 60);
-      } catch (err) {
-        container.innerHTML = `<p class="text-center text-red-400 py-8">Failed to generate exam questions. Try again.</p>`;
-      }
-    }
-
-    function renderExamQuestions() {
-      const container = document.getElementById('exam-questions-container');
-      container.innerHTML = '';
-      examData.forEach((q, qIdx) => {
-        const card = document.createElement('div');
-        card.className = 'glass-card p-3.5 rounded-xl border border-white/10 space-y-2';
-        let optionsHtml = '';
-        q.options.forEach((opt, oIdx) => {
-          const optLetter = String.fromCharCode(65 + oIdx);
-          optionsHtml += `
-            <label class="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5 cursor-pointer text-xs text-gray-200">
-              <input type="radio" name="question_${qIdx}" value="${optLetter}" class="accent-amber-500">
-              <span>${opt}</span>
-            </label>
-          `;
-        });
-        card.innerHTML = `
-          <p class="font-semibold text-white"><b>Q${qIdx+1}.</b> ${q.question}</p>
-          <div class="space-y-1">${optionsHtml}</div>
-        `;
-        container.appendChild(card);
-      });
-    }
-
-    function startExamTimer(seconds) {
-      examTimeRemaining = seconds;
-      const clockEl = document.getElementById('exam-clock');
-      if (examTimerInterval) clearInterval(examTimerInterval);
-      examTimerInterval = setInterval(() => {
-        examTimeRemaining--;
-        const m = Math.floor(examTimeRemaining / 60).toString().padStart(2, '0');
-        const s = (examTimeRemaining % 60).toString().padStart(2, '0');
-        clockEl.innerText = `${m}:${s}`;
-        if (examTimeRemaining <= 0) {
-          clearInterval(examTimerInterval);
-          submitExam();
-        }
-      }, 1000);
-    }
-
-    function submitExam() {
-      if (examTimerInterval) clearInterval(examTimerInterval);
-      let score = 0;
-      let reviewHtml = '';
-
-      examData.forEach((q, qIdx) => {
-        const selected = document.querySelector(`input[name="question_${qIdx}"]:checked`);
-        const userAns = selected ? selected.value : null;
-        const isCorrect = userAns === q.answer;
-        if (isCorrect) score++;
-
-        reviewHtml += `
-          <div class="glass-card p-3 rounded-xl border ${isCorrect ? 'border-emerald-500/30 bg-emerald-950/10' : 'border-red-500/30 bg-red-950/10'} space-y-1 text-xs">
-            <p class="font-semibold text-white">Q${qIdx+1}. ${q.question}</p>
-            <p class="text-gray-300">Your Answer: <span class="${isCorrect ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}">${userAns || 'No Answer'}</span> | Correct Answer: <span class="text-emerald-400 font-bold">${q.answer}</span></p>
-            <p class="text-[10px] text-gray-400 italic">Explanation: ${q.explanation}</p>
-          </div>
-        `;
-      });
-
-      document.getElementById('exam-active-view').classList.add('hidden');
-      const resultsView = document.getElementById('exam-results-view');
-      resultsView.classList.remove('hidden');
-      document.getElementById('exam-score-text').innerText = `${score} / ${examData.length}`;
-      document.getElementById('exam-feedback-text').innerText = score === examData.length ? "Perfect Score! Excellent job!" : "Great effort! Review the explanations below.";
-      document.getElementById('exam-review-container').innerHTML = reviewHtml;
-    }
-
-    function closeExamModal() {
-      if (examTimerInterval) clearInterval(examTimerInterval);
-      toggleModal('exam-modal', false);
-      resetExamView();
-    }
-
-    function resetExamView() {
-      if (examTimerInterval) clearInterval(examTimerInterval);
-      document.getElementById('exam-results-view').classList.add('hidden');
-      document.getElementById('exam-active-view').classList.add('hidden');
-      document.getElementById('exam-setup-view').classList.remove('hidden');
-      document.getElementById('exam-topic').value = '';
-    }
-
-    // AI Speech & Pronunciation Coach Logic
-    const sampleSentences = [
-      "The quick brown fox jumps over the lazy dog.",
-      "She sells seashells down by the seashore.",
-      "Artificial intelligence empowers students worldwide.",
-      "Consistency is the true key to mastering any language."
-    ];
-
-    function generateTargetSentence() {
-      const rand = sampleSentences[Math.floor(Math.random() * sampleSentences.length)];
-      document.getElementById('speech-target-text').innerText = rand;
-      document.getElementById('coach-feedback-box').classList.add('hidden');
-      document.getElementById('speech-user-result').innerText = "No speech recorded yet...";
-    }
-
-    function startCoachSpeechRecognition() {
-      if (!('webkitSpeechRecognition' in window)) {
-        showToast('Speech recognition not supported in this browser.');
-        return;
-      }
-      const rec = new webkitSpeechRecognition();
-      rec.lang = 'en-US';
-      const statusEl = document.getElementById('coach-status');
-      statusEl.innerText = "Listening... Speak now.";
-      statusEl.classList.add('text-emerald-400', 'font-bold');
-
-      rec.start();
-      rec.onresult = (e) => {
-        const spoken = e.results[0][0].transcript;
-        document.getElementById('speech-user-result').innerText = `"${spoken}"`;
-        analyzePronunciation(spoken);
-      };
-      rec.onend = () => {
-        statusEl.innerText = "Click mic and speak in English";
-        statusEl.classList.remove('text-emerald-400', 'font-bold');
-      };
-    }
-
-    function analyzePronunciation(spokenText) {
-      const targetText = document.getElementById('speech-target-text').innerText.trim().toLowerCase().replace(/[^\w\s]/gi, '');
-      const cleanSpoken = spokenText.trim().toLowerCase().replace(/[^\w\s]/gi, '');
-      const targetWords = targetText.split(' ');
-      const spokenWords = cleanSpoken.split(' ');
-
-      let matches = 0;
-      targetWords.forEach(w => {
-        if (spokenWords.includes(w)) matches++;
-      });
-
-      const accuracy = Math.round((matches / targetWords.length) * 100);
-      let feedback = `Accuracy score: ${accuracy}%. `;
-      if (accuracy >= 80) feedback += "Fantastic pronunciation! Very clear and precise.";
-      else if (accuracy >= 50) feedback += "Good job! Try pronouncing each syllable a bit clearer.";
-      else feedback += "Keep practicing! Listen closely to the sentence structure and try again.";
-
-      document.getElementById('coach-feedback-text').innerText = feedback;
-      document.getElementById('coach-feedback-box').classList.remove('hidden');
-    }
+    function stopGeneration() { if (activeAbortController) activeAbortController.abort(); }
   </script>
 </body>
 </html>
