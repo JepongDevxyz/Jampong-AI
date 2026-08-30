@@ -1,29 +1,19 @@
 {
-  "version": 2,
-  "cleanUrls": true,
-  "trailingSlash": false,
   "functions": {
-    "api/*.js": {
-      "maxDuration": 60
+    "api/chat.js": {
+      "maxDuration": 300
+    },
+    "api/image.js": {
+      "maxDuration": 300
+    },
+    "api/files.js": {
+      "maxDuration": 300
+    },
+    "api/feedback.js": {
+      "maxDuration": 10
+    },
+    "api/ping.js": {
+      "maxDuration": 10
     }
-  },
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        }
-      ]
-    }
-  ]
+  }
 }
