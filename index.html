@@ -2152,8 +2152,6 @@ async function regenerate(index) {
 
   if (state.generating) return;
 
-  if (index <= 0) return;
-
   let userIndex = index - 1;
 
   while (
@@ -2165,16 +2163,25 @@ async function regenerate(index) {
 
   if (userIndex < 0) return;
 
+  const originalPrompt =
+    state.messages[userIndex].content;
+
+  /*
+    Keep the conversation BEFORE the
+    selected user turn, then send that
+    user prompt once.
+  */
+
   state.messages =
     state.messages.slice(
       0,
-      userIndex + 1
+      userIndex
     );
 
   renderMessages();
 
   await sendMessage(
-    state.messages[userIndex].content
+    originalPrompt
   );
 }
 
@@ -2843,7 +2850,7 @@ $("#downloadImage").onclick =
       `data:${img.dataset.mime};base64,${img.dataset.base64}`;
 
     a.download =
-      "schoolbuds-ai-image.png";
+      "jampong-ai-image.png";
 
     a.click();
   };
