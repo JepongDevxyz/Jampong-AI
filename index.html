@@ -1,1386 +1,3162 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full w-full">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Jampong AI</title>
-  
-  <!-- External Libraries -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://unpkg.com/html5-qrcode"></script>
-
-  <style>
-    :root {
-      --bg-gradient: linear-gradient(135deg, #090d16 0%, #111827 50%, #1e1035 100%);
-      --glass-bg: rgba(255, 255, 255, 0.04);
-      --glass-border: rgba(255, 255, 255, 0.08);
-      --glass-card: rgba(255, 255, 255, 0.07);
-      --text-main: #f8fafc;
-      --text-sub: #94a3b8;
-      --input-bg: rgba(255, 255, 255, 0.05);
-      --code-bg: rgba(0, 0, 0, 0.4);
-    }
-
-    .light-mode {
-      --bg-gradient: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #cbd5e1 100%);
-      --glass-bg: rgba(255, 255, 255, 0.85);
-      --glass-border: rgba(15, 23, 42, 0.12);
-      --glass-card: #ffffff;
-      --text-main: #0f172a;
-      --text-sub: #475569;
-      --input-bg: #f8fafc;
-      --code-bg: #0f172a;
-    }
-
-    body {
-      background: var(--bg-gradient);
-      color: var(--text-main);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      overflow: hidden;
-      touch-action: manipulation;
-    }
-
-    .glass-panel {
-      background: var(--glass-bg);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--glass-border);
-    }
-
-    .glass-card {
-      background: var(--glass-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--glass-border);
-      color: var(--text-main);
-    }
-
-    .light-mode .text-gray-200, 
-    .light-mode .text-gray-300, 
-    .light-mode .text-gray-400 {
-      color: var(--text-sub) !important;
-    }
-
-    .light-mode .text-white {
-      color: var(--text-main) !important;
-    }
-
-    .light-mode #home-bible-verse,
-    .light-mode #home-bible-ref {
-      color: #1e293b !important;
-    }
-
-    .light-mode select option {
-      background-color: #ffffff;
-      color: #0f172a;
-    }
-
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-    pre {
-      position: relative;
-      margin-top: 0.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    pre code {
-      background: var(--code-bg) !important;
-      padding: 1rem !important;
-      padding-top: 2.2rem !important;
-      border-radius: 0.75rem !important;
-      display: block !important;
-      overflow-x: auto !important;
-      color: #38bdf8 !important;
-      font-family: monospace;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .code-action-bar {
-      position: absolute;
-      top: 0.4rem;
-      right: 0.5rem;
-      display: flex;
-      gap: 0.35rem;
-      z-index: 10;
-    }
-
-    .fade-transition {
-      transition: opacity 0.5s ease-in-out;
-    }
-  </style>
-</head>
-<body class="h-[100dvh] w-screen flex flex-col antialiased select-none">
-
-  <!-- Toast Notification System -->
-  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
-
-  <!-- LIVE CODE PREVIEW MODAL -->
-  <div id="code-preview-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex flex-col p-3 md:p-6">
-    <div class="glass-panel w-full max-w-5xl mx-auto h-full rounded-3xl flex flex-col overflow-hidden border border-indigo-500/30 shadow-2xl">
-      <div class="flex justify-between items-center px-4 py-3 border-b border-white/10 bg-black/25 shrink-0">
-        <h3 class="font-bold text-xs flex items-center gap-2 text-indigo-400"><i data-lucide="code" class="w-4 h-4"></i> LIVE INPUT</h3>
-        <div class="flex items-center gap-2">
-          <button onclick="runCodeInPreview()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1 transition">
-            <i data-lucide="play" class="w-3.5 h-3.5"></i> Run / Refresh
-          </button>
-          <button onclick="toggleModal('code-preview-modal', false)" class="p-1.5 hover:bg-white/10 rounded-xl transition"><i data-lucide="x" class="w-4 h-4"></i></button>
-        </div>
-      </div>
-
-      <div id="preview-grid-container" class="grid grid-cols-1 md:grid-cols-2 flex-1 overflow-hidden relative" style="grid-template-rows: 1fr 10px 1fr;">
-        <div id="editor-pane" class="flex flex-col md:border-r border-b md:border-b-0 border-white/10 h-full overflow-hidden">
-          <div class="bg-black/30 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase shrink-0">Code Editor (HTML/CSS/JS)</div>
-          <textarea id="preview-code-input" class="w-full flex-1 bg-black/50 text-sky-300 font-mono p-3 text-xs outline-none resize-none no-scrollbar"></textarea>
-        </div>
-
-        <div id="resize-handle" class="flex md:hidden items-center justify-center bg-indigo-600/20 hover:bg-indigo-600/40 cursor-row-resize py-1 transition z-20 shrink-0">
-          <div class="w-12 h-1.5 bg-indigo-400/80 rounded-full shadow-lg flex items-center justify-center"></div>
-        </div>
-
-        <div id="output-pane" class="flex flex-col h-full bg-white overflow-hidden">
-          <div class="bg-gray-200 px-3 py-1.5 text-[10px] font-bold text-gray-700 uppercase flex justify-between items-center shrink-0">
-            <span>Live Output Preview</span>
-            <span class="text-emerald-600 font-semibold text-[9px]">● Jampong AI</span>
-          </div>
-          <iframe id="preview-iframe" class="w-full flex-1 border-none"></iframe>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SCIENTIFIC CALCULATOR MODAL -->
-  <div id="calculator-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass-panel w-full max-w-xs rounded-3xl p-5 flex flex-col gap-3 border border-indigo-500/30 shadow-2xl relative">
-      <div class="flex justify-between items-center border-b border-white/10 pb-2">
-        <h3 class="font-bold text-sm flex items-center gap-2"><i data-lucide="calculator" class="w-4 h-4 text-indigo-400"></i> Scientific Calculator</h3>
-        <button onclick="toggleModal('calculator-modal', false)" class="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
-      </div>
-      <input type="text" id="calc-display" readonly value="0" class="w-full text-right text-xl font-mono p-3 glass-card rounded-xl outline-none border border-white/10 mb-1">
-      <div class="grid grid-cols-4 gap-1.5 text-xs font-semibold">
-        <button onclick="calcClear()" class="p-2.5 glass-card bg-red-500/20 text-red-500 rounded-xl hover:bg-red-500/30">C</button>
-        <button onclick="calcInput('(')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">(</button>
-        <button onclick="calcInput(')')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">)</button>
-        <button onclick="calcInput('/')" class="p-2.5 glass-card bg-indigo-500/20 text-indigo-400 rounded-xl">÷</button>
-        
-        <button onclick="calcInput('Math.sin(')" class="p-2.5 glass-card rounded-xl text-[10px]">sin</button>
-        <button onclick="calcInput('Math.cos(')" class="p-2.5 glass-card rounded-xl text-[10px]">cos</button>
-        <button onclick="calcInput('Math.tan(')" class="p-2.5 glass-card rounded-xl text-[10px]">tan</button>
-        <button onclick="calcInput('*')" class="p-2.5 glass-card bg-indigo-500/20 text-indigo-400 rounded-xl">×</button>
-        
-        <button onclick="calcInput('7')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">7</button>
-        <button onclick="calcInput('8')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">8</button>
-        <button onclick="calcInput('9')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">9</button>
-        <button onclick="calcInput('-')" class="p-2.5 glass-card bg-indigo-500/20 text-indigo-400 rounded-xl">-</button>
-        
-        <button onclick="calcInput('4')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">4</button>
-        <button onclick="calcInput('5')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">5</button>
-        <button onclick="calcInput('6')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">6</button>
-        <button onclick="calcInput('+')" class="p-2.5 glass-card bg-indigo-500/20 text-indigo-400 rounded-xl">+</button>
-        
-        <button onclick="calcInput('1')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">1</button>
-        <button onclick="calcInput('2')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">2</button>
-        <button onclick="calcInput('3')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">3</button>
-        <button onclick="calcInput('Math.sqrt(')" class="p-2.5 glass-card text-[10px] bg-indigo-500/20 text-indigo-400 rounded-xl">√</button>
-        
-        <button onclick="calcInput('0')" class="col-span-2 p-2.5 glass-card rounded-xl hover:bg-white/10">0</button>
-        <button onclick="calcInput('.')" class="p-2.5 glass-card rounded-xl hover:bg-white/10">.</button>
-        <button onclick="calcSolve()" class="p-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-500">=</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MERRIAM-WEBSTER API LIVE STUDENT DICTIONARY MODAL -->
-  <div id="dictionary-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass-panel w-full max-w-md rounded-3xl p-5 flex flex-col gap-3 border border-indigo-500/30 shadow-2xl relative max-h-[85vh]">
-      <div class="flex justify-between items-center border-b border-white/10 pb-2">
-        <h3 class="font-bold text-sm flex items-center gap-2"><i data-lucide="book" class="w-4 h-4 text-purple-400"></i> Merriam-Webster Live Dictionary</h3>
-        <button onclick="toggleModal('dictionary-modal', false)" class="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
-      </div>
-      <div class="flex gap-2">
-        <div class="relative flex-1">
-          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-gray-400"></i>
-          <input type="text" id="dict-search" placeholder="Search Merriam-Webster term..." class="w-full glass-card pl-9 pr-3 py-2 rounded-xl text-xs outline-none border border-white/10" onkeydown="if(event.key==='Enter') searchMerriamWebster()">
-        </div>
-        <button onclick="searchMerriamWebster()" class="px-3 py-2 bg-purple-600 text-white text-xs rounded-xl font-semibold hover:bg-purple-500 transition">Search</button>
-      </div>
-      <div id="dict-results" class="flex-1 overflow-y-auto space-y-3 pr-1 no-scrollbar text-xs">
-        <p class="text-gray-400 text-center py-4">Search for a word to view definitions, audio pronunciation, etymology, and part of speech.</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- INTERACTIVE EXAM GENERATOR WITH TIMER MODAL -->
-  <div id="exam-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass-panel w-full max-w-lg rounded-3xl p-5 flex flex-col gap-4 border border-indigo-500/30 shadow-2xl relative max-h-[90vh]">
-      <div class="flex justify-between items-center border-b border-white/10 pb-2">
-        <h3 class="font-bold text-sm flex items-center gap-2"><i data-lucide="file-text" class="w-4 h-4 text-amber-400"></i> Interactive AI Exam Generator</h3>
-        <button onclick="closeExamModal()" class="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
-      </div>
-
-      <div id="exam-setup-view" class="space-y-3 text-xs">
-        <div>
-          <label class="block text-gray-300 font-semibold mb-1">Subject / Custom Topic</label>
-          <input type="text" id="exam-topic" placeholder="Example: Photosynthesis, General Biology, World History..." class="w-full glass-card p-2.5 rounded-xl outline-none border border-white/10">
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-gray-300 font-semibold mb-1">Timer (Minutes)</label>
-            <input type="number" id="exam-timer-mins" value="5" min="1" max="60" class="w-full glass-card p-2.5 rounded-xl outline-none border border-white/10">
-          </div>
-          <div>
-            <label class="block text-gray-300 font-semibold mb-1">Number of Questions</label>
-            <select id="exam-count" class="w-full glass-card p-2.5 rounded-xl outline-none border border-white/10">
-              <option value="3">3 Questions</option>
-              <option value="5" selected>5 Questions</option>
-              <option value="10">10 Questions</option>
-            </select>
-          </div>
-        </div>
-        <button onclick="startExamGeneration()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-indigo-600 text-white font-semibold rounded-xl shadow-lg hover:opacity-95 transition flex items-center justify-center gap-2">
-          <i data-lucide="play" class="w-4 h-4"></i> Generate & Start Exam
-        </button>
-      </div>
-
-      <div id="exam-active-view" class="hidden flex-1 flex flex-col gap-3 overflow-hidden">
-        <div class="flex items-center justify-between bg-amber-500/20 border border-amber-500/40 p-2.5 rounded-xl text-xs">
-          <span class="font-bold text-amber-400" id="exam-current-topic">Topic</span>
-          <span class="font-mono font-bold text-amber-300 bg-black/40 px-2 py-1 rounded-lg" id="exam-clock">00:00</span>
-        </div>
-        <div id="exam-questions-container" class="flex-1 overflow-y-auto space-y-4 no-scrollbar pr-1 text-xs"></div>
-        <button id="exam-submit-btn" onclick="submitExam()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition shrink-0">Submit Exam Now</button>
-      </div>
-
-      <div id="exam-results-view" class="hidden flex-1 flex flex-col gap-3 overflow-y-auto no-scrollbar text-xs">
-        <div class="text-center glass-card p-4 rounded-2xl border border-indigo-500/30">
-          <p class="text-gray-400">Your Final Score:</p>
-          <h2 class="text-3xl font-extrabold text-amber-400 my-1" id="exam-score-text">0 / 0</h2>
-          <p id="exam-feedback-text" class="text-xs font-medium text-emerald-400"></p>
-        </div>
-        <div id="exam-review-container" class="space-y-3"></div>
-        <button onclick="resetExamView()" class="w-full py-2.5 glass-card hover:bg-white/10 rounded-xl font-semibold border border-white/10">Create New Exam</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- AI SPEECH & PRONUNCIATION COACH MODAL -->
-  <div id="pronunciation-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass-panel w-full max-w-md rounded-3xl p-5 flex flex-col gap-4 border border-indigo-500/30 shadow-2xl relative">
-      <div class="flex justify-between items-center border-b border-white/10 pb-2">
-        <h3 class="font-bold text-sm flex items-center gap-2"><i data-lucide="mic" class="w-4 h-4 text-emerald-400"></i> AI Speech & Pronunciation Coach</h3>
-        <button onclick="toggleModal('pronunciation-modal', false)" class="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
-      </div>
-
-      <div class="space-y-2 text-xs">
-        <button onclick="generateTargetSentence()" class="w-full py-2 glass-card hover:bg-white/10 rounded-xl text-indigo-400 font-semibold border border-indigo-500/30 flex items-center justify-center gap-2">
-          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Get New Sample Target Phrase
-        </button>
-        <div class="glass-card p-3 rounded-xl border border-white/10">
-          <p class="text-[10px] text-gray-400 mb-1 font-semibold">TARGET SENTENCE TO READ:</p>
-          <p id="speech-target-text" class="font-semibold text-white text-sm">The quick brown fox jumps over the lazy dog.</p>
-        </div>
-      </div>
-
-      <div class="flex flex-col items-center justify-center gap-2 my-1">
-        <button id="coach-mic-btn" onclick="startCoachSpeechRecognition()" class="p-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-lg transition transform active:scale-95">
-          <i data-lucide="mic" class="w-6 h-6"></i>
-        </button>
-        <p class="text-[10px] text-gray-400" id="coach-status">Click mic and speak in English</p>
-      </div>
-
-      <div class="glass-card p-3 rounded-xl border border-white/10 space-y-1 text-xs">
-        <p class="text-[10px] text-gray-400 font-semibold">SPEECH RESULT:</p>
-        <p id="speech-user-result" class="italic text-gray-300">No speech recorded yet...</p>
-      </div>
-
-      <div id="coach-feedback-box" class="hidden glass-card p-3 rounded-xl border border-emerald-500/30 space-y-1 text-xs bg-emerald-950/20">
-        <p class="text-[10px] text-emerald-400 font-bold flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> PRONUNCIATION ANALYSIS & FEEDBACK:</p>
-        <p id="coach-feedback-text" class="text-gray-200 leading-relaxed"></p>
-      </div>
-    </div>
-  </div>
-
-  <!-- MULTI-FUNCTION JAMPONG SMART AI & QR STUDIO MODAL -->
-  <div id="dola-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass-panel w-full max-w-md rounded-3xl p-6 flex flex-col gap-4 border border-indigo-500/30 shadow-2xl relative">
-      <div class="flex justify-between items-center border-b border-white/10 pb-3">
-        <div class="flex items-center gap-2.5">
-          <div class="p-2 bg-gradient-to-tr from-purple-500 to-indigo-500 rounded-xl text-white shadow-lg">
-            <i data-lucide="wand-2" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h2 class="font-bold text-sm text-white flex items-center gap-1.5">Jampong AI Studio</h2>
-            <p class="text-[10px] text-gray-400">Vision, Image Generator & QR Code</p>
-          </div>
-        </div>
-        <button onclick="closeDolaModal()" class="p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition text-gray-400">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="grid grid-cols-3 gap-1.5 p-1 glass-card rounded-xl border border-white/10 text-[10px]">
-        <button id="dola-mode-analyze" onclick="setDolaMode('analyze')" class="py-1.5 font-semibold rounded-lg bg-indigo-600 text-white transition flex items-center justify-center gap-1">
-          <i data-lucide="scan-line" class="w-3 h-3"></i> Vision
-        </button>
-        <button id="dola-mode-generate" onclick="setDolaMode('generate')" class="py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1">
-          <i data-lucide="image" class="w-3 h-3"></i> Edit/Create
-        </button>
-        <button id="dola-mode-qr" onclick="setDolaMode('qr')" class="py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1">
-          <i data-lucide="qr-code" class="w-3 h-3"></i> QR Code
-        </button>
-      </div>
-
-      <div id="dola-upload-area">
-        <label for="dola-file-input" class="border-2 border-dashed border-indigo-500/40 hover:border-indigo-400 rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition bg-indigo-950/10 hover:bg-indigo-900/20 group relative overflow-hidden h-36">
-          <input type="file" id="dola-file-input" accept="image/*" class="hidden" onchange="handleDolaImageSelect(event)">
-          <div id="dola-upload-placeholder" class="flex flex-col items-center gap-2">
-            <div class="p-2 bg-indigo-500/20 rounded-full text-indigo-400 group-hover:scale-110 transition duration-300">
-              <i data-lucide="camera" class="w-5 h-5"></i>
-            </div>
-            <p class="text-xs font-semibold" id="dola-upload-title">Upload Homework or Target Image</p>
-            <p class="text-[10px] text-gray-400" id="dola-upload-sub">Optional in Generation Mode</p>
-          </div>
-          <img id="dola-preview-img" class="hidden absolute inset-0 w-full h-full object-cover rounded-2xl">
-        </label>
-      </div>
-
-      <div id="qr-scanner-panel" class="hidden flex-col items-center gap-2">
-        <div id="qr-reader" class="w-full rounded-2xl overflow-hidden border border-indigo-500/30 bg-black"></div>
-        <button onclick="stopQRCameraScanner()" class="text-[10px] text-red-500 hover:underline">Stop Camera Scanner</button>
-      </div>
-
-      <div id="dola-analysis-status" class="hidden p-2 glass-card rounded-xl border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-300">
-        <span class="flex items-center gap-2">
-          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500"></i>
-          <span id="dola-status-text">Image Loaded & Ready!</span>
-        </span>
-        <button onclick="clearDolaImage(event)" class="text-[10px] text-red-500 hover:underline">Remove</button>
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <label class="text-[11px] font-semibold text-gray-300 flex items-center justify-between">
-          <span id="dola-prompt-label">Instructions / Text Payload</span>
-          <span class="text-[9px] text-indigo-500 font-bold" id="dola-prompt-hint">Auto-analyzes if empty in Vision Mode</span>
-        </label>
-        <textarea id="dola-prompt-text" rows="2" placeholder="Ex: https://facebook.com or Change duck into rat with money..." class="w-full glass-card p-2.5 rounded-xl text-xs outline-none focus:border-indigo-400/50 resize-none border border-white/10 placeholder-gray-400" oninput="autoDetectImageEditIntent(this.value)"></textarea>
-      </div>
-
-      <button id="qr-cam-btn" onclick="startQRCameraScanner()" class="hidden w-full py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-600 dark:text-emerald-200 text-xs rounded-xl font-medium transition flex items-center justify-center gap-2">
-        <i data-lucide="camera" class="w-4 h-4"></i> Scan Live Camera QR Code
-      </button>
-
-      <button onclick="processDolaAction()" class="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-95 text-white font-semibold text-xs rounded-xl shadow-lg transition duration-200 transform active:scale-95 flex items-center justify-center gap-2">
-        <i data-lucide="sparkles" class="w-4 h-4"></i> <span id="dola-btn-text">Process Action</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- QR DISPLAY MODAL -->
-  <div id="qr-display-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass-panel w-full max-w-xs rounded-3xl p-6 flex flex-col items-center text-center gap-4 border border-emerald-500/30 shadow-2xl">
-      <h3 class="font-bold text-sm flex items-center gap-2">
-        <i data-lucide="qr-code" class="w-5 h-5 text-emerald-500"></i> QR Code Generated
-      </h3>
-      <div id="qrcode-container" class="p-3 bg-white rounded-2xl border border-white/20 shadow-inner"></div>
-      <p id="qr-target-text" class="text-[10px] text-gray-400 break-all bg-black/5 dark:bg-white/5 p-2 rounded-xl w-full border border-white/10"></p>
-      
-      <div class="flex gap-2 w-full">
-        <a id="qr-redirect-btn" href="#" target="_blank" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-xl font-semibold transition flex items-center justify-center gap-1">
-          <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Open Link
-        </a>
-        <button onclick="toggleModal('qr-display-modal', false)" class="px-4 py-2 glass-card hover:bg-black/5 dark:hover:bg-white/10 text-xs rounded-xl font-medium">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Settings Pop Up Modal -->
-  <div id="settings-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass-panel w-full max-w-sm rounded-2xl p-5 space-y-4">
-      <div class="flex justify-between items-center border-b border-white/10 pb-2">
-        <h3 class="font-bold text-sm flex items-center gap-2"><i data-lucide="sliders" class="w-4 h-4"></i> System Settings</h3>
-        <button onclick="toggleModal('settings-modal', false)" class="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><i data-lucide="x" class="w-4 h-4"></i></button>
-      </div>
-      <div class="space-y-3 text-xs">
-        <div class="p-3 glass-card rounded-xl space-y-1">
-          <p class="text-indigo-600 dark:text-indigo-400 font-semibold">System v4.9 Core Optimized</p>
-          <p class="opacity-70">Developer: <strong>Jay-Ar Lee Espiritu</strong></p>
-          <p class="opacity-50 text-[10px]">Engine: JepongDevxyz AI - Gemini 3.7 Flash</p>
-        </div>
-        <button onclick="clearAllHistory()" class="w-full py-2 bg-red-500/20 hover:bg-red-500/30 text-red-500 dark:text-red-300 rounded-xl font-medium border border-red-500/30 transition">
-          Clear Chat History
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- App Main Layout -->
-  <div class="flex h-full w-full overflow-hidden relative">
-    <div id="drawer-backdrop" class="fixed inset-0 bg-black/50 z-30 md:hidden hidden" onclick="toggleSidebar(false)"></div>
-
-    <!-- Sidebar -->
-    <aside id="sidebar" class="absolute md:relative z-40 h-full w-72 glass-panel transition-transform duration-300 transform -translate-x-full md:translate-x-0 flex flex-col justify-between shrink-0">
-      <div class="p-3.5 flex flex-col h-full overflow-hidden">
-        <div class="flex items-center justify-between mb-3 shrink-0">
-          <div class="flex items-center gap-2">
-            <div class="p-2 bg-indigo-600/30 rounded-xl border border-indigo-400/30">
-              <i data-lucide="graduation-cap" class="w-5 h-5 text-indigo-500 dark:text-indigo-400"></i>
-            </div>
-            <div>
-              <h1 class="font-bold text-xs tracking-wide">Jampong AI - v4.9 Pro</h1>
-              <p class="text-[10px] opacity-60">Your everyday needs!</p>
-            </div>
-          </div>
-          <button onclick="toggleSidebar(false)" class="md:hidden p-1.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg">
-            <i data-lucide="x" class="w-4 h-4"></i>
-          </button>
-        </div>
-
-        <button onclick="createNewChat()" class="w-full py-2.5 px-3 glass-card hover:bg-black/5 dark:hover:bg-white/20 rounded-xl flex items-center justify-center gap-2 font-medium text-xs transition mb-3 shrink-0 border border-white/10">
-          <i data-lucide="plus" class="w-4 h-4"></i> New Chat Session
-        </button>
-
-        <div class="relative mb-3 shrink-0">
-          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-2.5 opacity-50"></i>
-          <input type="text" id="chat-search" oninput="renderChatHistory(this.value)" placeholder="Search history..." class="w-full glass-card pl-8 pr-3 py-1.5 rounded-lg text-xs outline-none focus:border-indigo-400/50">
-        </div>
-
-        <div class="flex-1 overflow-y-auto space-y-1 pr-1 no-scrollbar" id="chat-history-container"></div>
-
-        <div class="pt-3 border-t border-white/10 mt-auto shrink-0 space-y-2">
-          <div class="flex items-center justify-between text-[11px] opacity-70 px-1">
-            <span class="flex items-center gap-1.5"><i data-lucide="activity" class="w-3.5 h-3.5 text-emerald-500"></i> Latency:</span>
-            <span id="ping-badge" class="font-mono text-emerald-600 dark:text-emerald-400">-- ms</span>
-          </div>
-
-          <button onclick="toggleModal('settings-modal', true)" class="w-full py-2 px-3 glass-card hover:bg-black/5 dark:hover:bg-white/10 rounded-xl flex items-center justify-between text-xs transition">
-            <span class="flex items-center gap-2"><i data-lucide="settings" class="w-3.5 h-3.5"></i> Settings</span>
-            <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-          </button>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Main Dynamic Chat Area -->
-    <main class="flex-1 flex flex-col h-full w-full min-w-0 overflow-hidden relative">
-      <header class="h-14 glass-panel shrink-0 flex items-center justify-between px-3 md:px-5 z-20 gap-2">
-        <div class="flex items-center gap-2 min-w-0 flex-1">
-          <button onclick="toggleSidebar(true)" class="md:hidden p-2 glass-card rounded-xl shrink-0">
-            <i data-lucide="menu" class="w-4 h-4"></i>
-          </button>
-          <select id="model-selector" class="glass-card text-xs px-2.5 py-1.5 rounded-xl outline-none cursor-pointer border border-white/10 truncate max-w-[190px] sm:max-w-none">
-            <option value="gemini-3.7-flash" selected>3.7 Flash (Optimized)</option>
-            <option value="gemini-3.6-flash">3.6 Flash (Enhanced)</option>
-            <option value="gemini-3.5-flash-lite">3.5 Flash-Lite (Fast)</option>
-            <option value="gemini-3.1-pro-preview">3.1 Pro (Advanced)</option>
-          </select>
-        </div>
-
-        <div class="flex items-center gap-1.5 shrink-0">
-          <button id="toggle-websearch" onclick="toggleFeature('webSearch')" title="Web Search Toggle" class="p-2 glass-card rounded-xl opacity-60 hover:opacity-100 transition">
-            <i data-lucide="globe" class="w-4 h-4"></i>
-          </button>
-          <button id="toggle-studymode" onclick="toggleFeature('studyMode')" title="Study Mode" class="p-2 glass-card rounded-xl opacity-60 hover:opacity-100 transition">
-            <i data-lucide="book-open" class="w-4 h-4"></i>
-          </button>
-          <button onclick="toggleTheme()" title="Toggle Dark/Light Mode" class="p-2 glass-card rounded-xl hover:bg-black/5 dark:hover:bg-white/20 transition">
-            <i data-lucide="sun" class="w-4 h-4"></i>
-          </button>
-        </div>
-      </header>
-
-      <div id="status-indicator-bar" class="hidden shrink-0 px-4 py-1.5 bg-indigo-600/20 border-b border-indigo-500/30 flex items-center justify-between text-xs">
-        <span class="flex items-center gap-2 text-indigo-600 dark:text-indigo-300 font-medium">
-          <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
-          <span id="indicator-text">Processing request with Jampong AI...</span>
-        </span>
-        <button onclick="stopGeneration()" class="px-2.5 py-0.5 bg-red-500/30 hover:bg-red-500/50 text-red-600 dark:text-red-200 text-[11px] rounded-md transition font-medium">Stop</button>
-      </div>
-
-      <div id="chat-viewport" class="flex-1 overflow-y-auto p-3 md:p-5 space-y-4 flex flex-col justify-center items-center"></div>
-
-      <!-- INPUT PANEL -->
-      <div class="p-3 glass-panel shrink-0 border-t border-white/10 relative z-10">
-        <div id="file-preview-bar" class="hidden mb-2 relative inline-flex items-center gap-2 glass-card p-1.5 pr-3 rounded-xl border border-indigo-400/40">
-          <img id="attached-thumb" src="" class="w-10 h-10 object-cover rounded-lg">
-          <div class="text-[11px]">
-            <p class="font-medium truncate w-32" id="attached-name">image.jpg</p>
-            <p class="text-[9px] text-purple-600 dark:text-purple-300 font-semibold" id="attached-type-tag">Jampong AI Active</p>
-          </div>
-          <button onclick="removeAttachment()" class="p-1 hover:bg-black/10 dark:hover:bg-white/20 rounded-full text-red-500"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
-        </div>
-
-        <div class="glass-card p-2 rounded-2xl max-w-4xl mx-auto flex flex-col gap-2 border border-white/10">
-          <textarea id="user-input" rows="1" placeholder="What's on your mind? Ask Jampong AI..." class="w-full bg-transparent py-1.5 px-3 outline-none resize-none max-h-32 text-xs leading-relaxed placeholder-gray-400"></textarea>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 overflow-x-auto no-scrollbar">
-            <div class="flex items-center gap-1.5 shrink-0">
-              <label class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl cursor-pointer transition text-gray-400 hover:text-gray-700 dark:hover:text-white" title="Attach file">
-                <i data-lucide="paperclip" class="w-4 h-4"></i>
-                <input type="file" id="file-uploader" accept="image/*" class="hidden" onchange="handleFileUpload(event)">
-              </label>
-
-              <button onclick="openDolaModal('analyze')" title="Jampong AI Studio" class="p-2 bg-purple-600/15 hover:bg-purple-600/30 text-purple-600 dark:text-purple-300 rounded-xl transition border border-purple-500/30 flex items-center gap-1 text-xs font-semibold">
-                <i data-lucide="wand-2" class="w-4 h-4"></i>
-              </button>
-
-              <button onclick="openDolaModal('qr')" title="QR Code Engine" class="p-2 bg-emerald-600/15 hover:bg-emerald-600/30 text-emerald-600 dark:text-emerald-300 rounded-xl transition border border-emerald-500/30 flex items-center gap-1 text-xs font-semibold">
-                <i data-lucide="qr-code" class="w-4 h-4"></i>
-              </button>
-
-              <button onclick="openCodePreviewSandbox()" title="Open Live Preview" class="p-2 bg-sky-600/15 hover:bg-sky-600/30 text-sky-500 dark:text-sky-400 rounded-xl transition border border-sky-500/30 flex items-center gap-1">
-                <i data-lucide="code" class="w-4 h-4"></i>
-              </button>
-
-              <button onclick="toggleModal('exam-modal', true)" title="Interactive Exam Generator" class="p-2 bg-amber-500/15 hover:bg-amber-500/30 text-amber-500 dark:text-amber-400 rounded-xl transition border border-amber-500/30">
-                <i data-lucide="file-text" class="w-4 h-4"></i>
-              </button>
-
-              <button onclick="toggleModal('pronunciation-modal', true)" title="AI Speech & Pronunciation Coach" class="p-2 bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-500 dark:text-emerald-400 rounded-xl transition border border-emerald-500/30">
-                <i data-lucide="mic" class="w-4 h-4"></i>
-              </button>
-
-              <button onclick="toggleModal('calculator-modal', true)" title="Scientific Calculator" class="p-2 bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-500 dark:text-indigo-400 rounded-xl transition border border-indigo-500/30">
-                <i data-lucide="calculator" class="w-4 h-4"></i>
-              </button>
-
-              <button onclick="toggleModal('dictionary-modal', true)" title="Student Merriam-Webster Dictionary" class="p-2 bg-purple-500/15 hover:bg-purple-500/30 text-purple-500 dark:text-purple-400 rounded-xl transition border border-purple-500/30">
-                <i data-lucide="book" class="w-4 h-4"></i>
-              </button>
-
-              <button id="mic-btn" onclick="toggleVoiceInput()" title="Voice Input" class="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-xl transition text-gray-400">
-                <i data-lucide="mic" class="w-4 h-4"></i>
-              </button>
-            </div>
-
-            <button id="send-btn" onclick="submitPrompt()" class="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition flex items-center justify-center shrink-0 ml-1">
-              <i data-lucide="send" class="w-4 h-4"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
-
-  <script>
-    if (typeof marked !== 'undefined') {
-      marked.setOptions({ gfm: true, breaks: true });
-    }
-
-    const bibleVerses = [
-      { text: "For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you, plans to give you hope and a future.", ref: "Jeremiah 29:11" },
-      { text: "I can do all things through Christ who strengthens me.", ref: "Philippians 4:13" },
-      { text: "Trust in the Lord with all your heart and lean not on your own understanding.", ref: "Proverbs 3:5" },
-      { text: "The Lord is my shepherd; I shall not want.", ref: "Psalm 23:1" },
-      { text: "So do not fear, for I am with you; do not be dismayed, for I am your God.", ref: "Isaiah 41:10" },
-      { text: "Come to me, all you who are weary and burdened, and I will give you rest.", ref: "Matthew 11:28" },
-      { text: "Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go.", ref: "Joshua 1:9" },
-      { text: "And we know that in all things God works for the good of those who love him.", ref: "Romans 8:28" }
-    ];
-
-    let bibleInterval = null;
-
-    function startBibleVerseRotation() {
-      if (bibleInterval) clearInterval(bibleInterval);
-      const verseEl = document.getElementById('home-bible-verse');
-      const refEl = document.getElementById('home-bible-ref');
-      if (!verseEl || !refEl) return;
-
-      bibleInterval = setInterval(() => {
-        verseEl.classList.add('opacity-0');
-        refEl.classList.add('opacity-0');
-        setTimeout(() => {
-          const randomIndex = Math.floor(Math.random() * bibleVerses.length);
-          const v = bibleVerses[randomIndex];
-          verseEl.innerText = `"${v.text}"`;
-          refEl.innerText = `— ${v.ref}`;
-          verseEl.classList.remove('opacity-0');
-          refEl.classList.remove('opacity-0');
-        }, 500);
-      }, 5000);
-    }
-
-    async function downloadImageBlob(url, quality) {
-      try {
-        showToast(`Preparing ${quality} download...`);
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = `jampong-ai-${quality}-${Date.now()}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-        showToast('Download complete!');
-      } catch (e) {
-        window.open(url, '_blank');
-      }
-    }
-
-    function openCodePreviewSandbox(initialCode = '<h1 style="font-family:sans-serif; text-align:center; margin-top:20vh; color:#4f46e5;">Welcome to Code Preview, I am Jampong AI! ✨</h1>') {
-      document.getElementById('preview-code-input').value = initialCode;
-      toggleModal('code-preview-modal', true);
-      runCodeInPreview();
-    }
-
-    function runCodeInPreview() {
-      const code = document.getElementById('preview-code-input').value;
-      const iframe = document.getElementById('preview-iframe');
-      const doc = iframe.contentDocument || iframe.contentWindow.document;
-      doc.open();
-      doc.write(code);
-      doc.close();
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const handle = document.getElementById('resize-handle');
-      const container = document.getElementById('preview-grid-container');
-      let isDragging = false;
-
-      if(handle && container) {
-        handle.addEventListener('touchstart', (e) => { isDragging = true; e.preventDefault(); }, { passive: false });
-        handle.addEventListener('mousedown', (e) => { isDragging = true; e.preventDefault(); });
-        window.addEventListener('touchmove', (e) => { if (isDragging) adjustPanes(e.touches[0].clientY); }, { passive: false });
-        window.addEventListener('mousemove', (e) => { if (isDragging) adjustPanes(e.clientY); });
-        window.addEventListener('touchend', () => { isDragging = false; });
-        window.addEventListener('mouseup', () => { isDragging = false; });
-      }
-
-      function adjustPanes(yPos) {
-        const rect = container.getBoundingClientRect();
-        const offsetY = yPos - rect.top;
-        let percentage = (offsetY / rect.height) * 100;
-        if (percentage < 15) percentage = 15;
-        if (percentage > 85) percentage = 85;
-        container.style.gridTemplateRows = `${percentage}fr 10px ${100 - percentage}fr`;
-      }
-    });
-
-    async function searchMerriamWebster() {
-      const q = document.getElementById('dict-search').value.trim().toLowerCase();
-      const container = document.getElementById('dict-results');
-      if(!q) return;
-
-      container.innerHTML = `<div class="text-center py-4 text-gray-400"><i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto mb-1"></i> Searching Merriam-Webster...</div>`;
-      lucide.createIcons();
-
-      try {
-        const res = await fetch(`/api/dictionary?word=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Server error occurred.');
-
-        if(!data || data.length === 0 || typeof data[0] === 'string') {
-          container.innerHTML = `<p class="text-red-400 text-center py-4">No definition found. Suggestions: ${Array.isArray(data) ? data.slice(0,5).join(', ') : 'None'}</p>`;
-          return;
-        }
-
-        container.innerHTML = '';
-        data.slice(0, 3).forEach(entry => {
-          const word = entry.hwi?.hw?.replace(/\*/g, '·') || q;
-          const fl = entry.fl || 'noun/verb';
-          const shortdefs = entry.shortdef || ['No short definition.'];
-          const etymology = entry.et?.[0]?.[1] ? entry.et[0][1].replace(/\{[^}]+\}/g, '') : ' No etymology available';
-
-          let audioUrl = null;
-          if (entry.hwi?.prs?.[0]?.sound?.audio) {
-            const audioName = entry.hwi.prs[0].sound.audio;
-            let subdirectory = audioName.charAt(0);
-            if (audioName.startsWith("bix")) subdirectory = "bix";
-            else if (audioName.startsWith("gg")) subdirectory = "gg";
-            else if (!isNaN(audioName.charAt(0))) subdirectory = "number";
-            audioUrl = `https://media.merriam-webster.com/audio/prons/en/us/mp3/${subdirectory}/${audioName}.mp3`;
-          }
-
-          const card = document.createElement('div');
-          card.className = "glass-card p-3 rounded-xl border border-white/10 space-y-2";
-          card.innerHTML = `
-            <div class="flex justify-between items-start">
-              <div>
-                <h4 class="font-bold text-base text-purple-400 capitalize">${word}</h4>
-                <span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold uppercase tracking-wider">${fl}</span>
-              </div>
-              ${audioUrl ? `<button onclick="new Audio('${audioUrl}').play()" class="p-2 bg-purple-600/30 hover:bg-purple-600 text-purple-200 rounded-xl border border-purple-500/30 flex items-center gap-1"><i data-lucide="volume-2" class="w-4 h-4"></i> Listen</button>` : ''}
-            </div>
-            <div>
-              <p class="text-[10px] font-bold text-gray-400 uppercase">Definition:</p>
-              <ul class="list-disc list-inside space-y-1 text-gray-200 mt-1">
-                ${shortdefs.map(d => `<li>${d}</li>`).join('')}
-              </ul>
-            </div>
-            <div class="border-t border-white/5 pt-1.5 text-[10px] text-gray-400">
-              <span class="font-bold">Etymology:</span> ${etymology}
-            </div>
-          `;
-          container.appendChild(card);
-        });
-        lucide.createIcons();
-      } catch (err) {
-        container.innerHTML = `<p class="text-red-400 text-center py-4">Error: ${err.message}</p>`;
-      }
-    }
-
-    let examTimerInterval = null;
-    let examData = [];
-
-    function closeExamModal() {
-      clearInterval(examTimerInterval);
-      toggleModal('exam-modal', false);
-    }
-
-    function resetExamView() {
-      clearInterval(examTimerInterval);
-      document.getElementById('exam-setup-view').classList.remove('hidden');
-      document.getElementById('exam-active-view').classList.add('hidden');
-      document.getElementById('exam-results-view').classList.add('hidden');
-    }
-
-    async function startExamGeneration() {
-      const topic = document.getElementById('exam-topic').value.trim() || 'General Science & Academic Knowledge';
-      const mins = parseInt(document.getElementById('exam-timer-mins').value) || 5;
-      const count = parseInt(document.getElementById('exam-count').value) || 5;
-
-      document.getElementById('exam-setup-view').classList.add('hidden');
-      document.getElementById('exam-active-view').classList.remove('hidden');
-      document.getElementById('exam-current-topic').innerText = topic;
-
-      const container = document.getElementById('exam-questions-container');
-      container.innerHTML = `<div class="text-center py-10 text-gray-400"><i data-lucide="loader-2" class="w-6 h-6 animate-spin mx-auto mb-2 text-amber-400"></i> Generating custom exam via AI...</div>`;
-      lucide.createIcons();
-
-      examData = [];
-      for(let i=1; i<=count; i++) {
-        examData.push({
-          id: i,
-          q: `[${topic}] Question #${i}: What is a core concept or fundamental principle of this topic in academic studies?`,
-          options: [
-            `A. Primary theoretical foundation regarding ${topic}`,
-            `B. Secondary principle and practical application of ${topic}`,
-            `C. Correct methodology for analyzing ${topic}`,
-            `D. All of the above are correct`
-          ],
-          correct: 3,
-          explanation: `The answer is D because ${topic} encompasses theory, practical application, and analytical methodology.`
-        });
-      }
-
-      container.innerHTML = '';
-      examData.forEach((item, idx) => {
-        const qBox = document.createElement('div');
-        qBox.className = "glass-card p-3 rounded-2xl border border-white/10 space-y-2";
-        qBox.innerHTML = `
-          <p class="font-bold text-gray-200">${idx+1}. ${item.q}</p>
-          <div class="space-y-1.5 pl-1">
-            ${item.options.map((opt, oIdx) => `
-              <label class="flex items-center gap-2 p-2 rounded-xl bg-black/10 hover:bg-white/10 cursor-pointer border border-white/5 transition">
-                <input type="radio" name="exam-q-${idx}" value="${oIdx}" class="text-amber-500 focus:ring-0">
-                <span class="text-gray-300">${opt}</span>
-              </label>
-            `).join('')}
-          </div>
-        `;
-        container.appendChild(qBox);
-      });
-
-      let totalSeconds = mins * 60;
-      const clockEl = document.getElementById('exam-clock');
-      
-      clearInterval(examTimerInterval);
-      examTimerInterval = setInterval(() => {
-        const m = Math.floor(totalSeconds / 60);
-        const s = totalSeconds % 60;
-        clockEl.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        
-        if (totalSeconds <= 0) {
-          clearInterval(examTimerInterval);
-          showToast('Time is up! Auto-submitting exam...');
-          submitExam();
-        }
-        totalSeconds--;
-      }, 1000);
-    }
-
-    function submitExam() {
-      clearInterval(examTimerInterval);
-      let score = 0;
-      const reviewContainer = document.getElementById('exam-review-container');
-      reviewContainer.innerHTML = '';
-
-      examData.forEach((item, idx) => {
-        const selected = document.querySelector(`input[name="exam-q-${idx}"]:checked`);
-        const userAns = selected ? parseInt(selected.value) : -1;
-        const isCorrect = userAns === item.correct;
-        if (isCorrect) score++;
-
-        const revCard = document.createElement('div');
-        revCard.className = `glass-card p-3 rounded-xl border ${isCorrect ? 'border-emerald-500/40 bg-emerald-950/10' : 'border-red-500/40 bg-red-950/10'} space-y-1`;
-        revCard.innerHTML = `
-          <p class="font-bold ${isCorrect ? 'text-emerald-400' : 'text-red-400'}">${idx+1}. ${item.q}</p>
-          <p class="text-gray-300"><strong>Your Answer:</strong> ${userAns >= 0 ? item.options[userAns] : 'No answer provided'}</p>
-          <p class="text-emerald-400"><strong>Correct Answer:</strong> ${item.options[item.correct]}</p>
-          <p class="text-gray-400 text-[11px] pt-1 border-t border-white/5"><strong>Explanation:</strong> ${item.explanation}</p>
-        `;
-        reviewContainer.appendChild(revCard);
-      });
-
-      document.getElementById('exam-score-text').innerText = `${score} / ${examData.length}`;
-      const percentage = (score / examData.length) * 100;
-      document.getElementById('exam-feedback-text').innerText = percentage >= 70 ? "Excellent job! You passed the exam!" : "More practice and review recommended.";
-
-      document.getElementById('exam-active-view').classList.add('hidden');
-      document.getElementById('exam-results-view').classList.remove('hidden');
-    }
-
-    const sampleSentences = [
-      "The quick brown fox jumps over the lazy dog.",
-      "Artificial intelligence is transforming modern education worldwide.",
-      "Photosynthesis allows plants to convert sunlight into chemical energy.",
-      "Persistent practice leads to fluent spoken language mastery."
-    ];
-
-    function generateTargetSentence() {
-      const random = sampleSentences[Math.floor(Math.random() * sampleSentences.length)];
-      document.getElementById('speech-target-text').innerText = random;
-      document.getElementById('speech-user-result').innerText = "No speech recorded yet...";
-      document.getElementById('coach-feedback-box').classList.add('hidden');
-    }
-
-    function startCoachSpeechRecognition() {
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        return showToast('Speech Recognition is not supported in this browser.');
-      }
-
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const rec = new SpeechRecognition();
-      rec.lang = 'en-US';
-      rec.interimResults = false;
-
-      const statusEl = document.getElementById('coach-status');
-      statusEl.innerText = "Listening... Speak now!";
-      statusEl.classList.add('text-emerald-400', 'font-bold');
-
-      rec.start();
-
-      rec.onresult = (e) => {
-        const transcript = e.results[0][0].transcript;
-        document.getElementById('speech-user-result').innerText = `"${transcript}"`;
-        analyzePronunciation(transcript);
-      };
-
-      rec.onerror = () => {
-        statusEl.innerText = "Microphone error. Please try again.";
-        statusEl.classList.remove('text-emerald-400', 'font-bold');
-      };
-
-      rec.onend = () => {
-        statusEl.innerText = "Recording finished. Click mic to repeat.";
-        statusEl.classList.remove('text-emerald-400', 'font-bold');
-      };
-    }
-
-    function analyzePronunciation(spokenText) {
-      const targetText = document.getElementById('speech-target-text').innerText.trim().toLowerCase().replace(/[^\w\s]/gi, '');
-      const cleanSpoken = spokenText.trim().toLowerCase().replace(/[^\w\s]/gi, '');
-
-      const targetWords = targetText.split(' ');
-      const spokenWords = cleanSpoken.split(' ');
-
-      let matches = 0;
-      targetWords.forEach(w => { if (spokenWords.includes(w)) matches++; });
-
-      const accuracy = Math.round((matches / targetWords.length) * 100);
-      const feedbackBox = document.getElementById('coach-feedback-box');
-      const feedbackText = document.getElementById('coach-feedback-text');
-
-      feedbackBox.classList.remove('hidden');
-      if (accuracy >= 80) {
-        feedbackText.innerText = `Great job! Accuracy: ${accuracy}%. Clear and accurate pronunciation.`;
-      } else if (accuracy >= 50) {
-        feedbackText.innerText = `Good effort! Accuracy: ${accuracy}%. Pay attention to word stress and clear articulation.`;
-      } else {
-        feedbackText.innerText = `Accuracy: ${accuracy}%. Try speaking slower and focusing on individual word clarity.`;
-      }
-    }
-
-    let chats = JSON.parse(localStorage.getItem('academic_master_chats') || '[]');
-    let currentChatId = null;
-    let activeAttachment = null;
-    let activeAbortController = null;
-    let dolaMode = 'analyze';
-    let isVisionProcessing = false;
-    let html5QrCodeScanner = null;
-    let featureFlags = { webSearch: false, studyMode: false };
-
-    const sidebar = document.getElementById('sidebar');
-    const drawerBackdrop = document.getElementById('drawer-backdrop');
-    const chatViewport = document.getElementById('chat-viewport');
-    const userInput = document.getElementById('user-input');
-    const chatHistoryContainer = document.getElementById('chat-history-container');
-    const statusIndicatorBar = document.getElementById('status-indicator-bar');
-    const indicatorText = document.getElementById('indicator-text');
-    const pingBadge = document.getElementById('ping-badge');
-
-    window.addEventListener('DOMContentLoaded', () => {
-      lucide.createIcons();
-      if (chats.length === 0) createNewChat();
-      else currentChatId = chats[0].id;
-      renderChatHistory();
-      renderChatMessages();
-      measurePing();
-      setInterval(measurePing, 12000);
-      initSwipeGestures();
-    });
-
-    function autoDetectImageEditIntent(value) {
-      if (!value) return;
-      const lower = value.toLowerCase();
-      const editKeywords = ['change', 'edit', 'convert', 'replace', 'make it', 'turn into', 'generate', 'palitan', 'gawan'];
-      if (editKeywords.some(kw => lower.includes(kw)) && dolaMode !== 'generate') {
-        setDolaMode('generate');
-      }
-    }
-
-    function initSwipeGestures() {
-      let touchStartX = 0;
-      let touchStartY = 0;
-      let touchEndX = 0;
-      let touchEndY = 0;
-
-      document.addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-        touchStartY = e.changedTouches[0].screenY;
-      }, { passive: true });
-
-      document.addEventListener('touchend', (e) => {
-        touchEndX = e.changedTouches[0].screenX;
-        touchEndY = e.changedTouches[0].screenY;
-        const xDistance = touchEndX - touchStartX;
-        const yDistance = Math.abs(touchEndY - touchStartY);
-        if (yDistance > 60) return;
-        if (xDistance > 50 && touchStartX < 50) toggleSidebar(true);
-        else if (xDistance < -50 && !sidebar.classList.contains('-translate-x-full')) toggleSidebar(false);
-      }, { passive: true });
-    }
-
-    function calcInput(val) {
-      const display = document.getElementById('calc-display');
-      if (display.value === '0' || display.value === 'Error') display.value = val;
-      else display.value += val;
-    }
-
-    function calcClear() { document.getElementById('calc-display').value = '0'; }
-
-    function calcSolve() {
-      const display = document.getElementById('calc-display');
-      try { display.value = eval(display.value); } catch (e) { display.value = 'Error'; }
-    }
-
-    function openDolaModal(initialMode = 'analyze') { 
-      document.getElementById('dola-modal').classList.remove('hidden'); 
-      setDolaMode(initialMode);
-    }
-    
-    function closeDolaModal() { 
-      stopQRCameraScanner();
-      document.getElementById('dola-modal').classList.add('hidden'); 
-    }
-
-    function setDolaMode(mode) {
-      dolaMode = mode;
-      stopQRCameraScanner();
-
-      const analyzeBtn = document.getElementById('dola-mode-analyze');
-      const generateBtn = document.getElementById('dola-mode-generate');
-      const qrBtn = document.getElementById('dola-mode-qr');
-      const qrCamBtn = document.getElementById('qr-cam-btn');
-      const uploadArea = document.getElementById('dola-upload-area');
-
-      analyzeBtn.className = "py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1";
-      generateBtn.className = "py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1";
-      qrBtn.className = "py-1.5 font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center gap-1";
-      qrCamBtn.classList.add('hidden');
-      uploadArea.classList.remove('hidden');
-
-      if (mode === 'generate') {
-        generateBtn.className = "py-1.5 font-semibold rounded-lg bg-purple-600 text-white transition flex items-center justify-center gap-1";
-        document.getElementById('dola-prompt-label').innerText = "Image Generation / Edit Prompt";
-        document.getElementById('dola-prompt-hint').innerText = "Describe what you want to create or edit";
-        document.getElementById('dola-upload-title').innerText = "Upload Reference Image (Optional)";
-        document.getElementById('dola-btn-text').innerText = "Generate / Edit Image";
-      } else if (mode === 'qr') {
-        qrBtn.className = "py-1.5 font-semibold rounded-lg bg-emerald-600 text-white transition flex items-center justify-center gap-1";
-        document.getElementById('dola-prompt-label').innerText = "QR Code Payload / Link";
-        document.getElementById('dola-prompt-hint').innerText = "Enter URL or text to generate code";
-        document.getElementById('dola-btn-text').innerText = "Process QR Code Action";
-        qrCamBtn.classList.remove('hidden');
-        uploadArea.classList.add('hidden');
-      } else {
-        analyzeBtn.className = "py-1.5 font-semibold rounded-lg bg-indigo-600 text-white transition flex items-center justify-center gap-1";
-        document.getElementById('dola-prompt-label').innerText = "Instructions / Text Payload";
-        document.getElementById('dola-prompt-hint').innerText = "Auto-analyzes if empty in Vision Mode";
-        document.getElementById('dola-upload-title').innerText = "Upload Homework or Target Image";
-        document.getElementById('dola-btn-text').innerText = "Analyze Image & Solve Homework";
-      }
-    }
-
-    function generateQRCode(text) {
-      const container = document.getElementById('qrcode-container');
-      container.innerHTML = '';
-      new QRCode(container, { text: text, width: 180, height: 180 });
-      document.getElementById('qr-target-text').innerText = text;
-      document.getElementById('qr-redirect-btn').href = text;
-      toggleModal('qr-display-modal', true);
-    }
-
-    function startQRCameraScanner() {
-      document.getElementById('qr-scanner-panel').classList.remove('hidden');
-      document.getElementById('dola-upload-area').classList.add('hidden');
-      document.getElementById('qr-cam-btn').classList.add('hidden');
-      
-      html5QrCodeScanner = new Html5Qrcode("qr-reader");
-      html5QrCodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 200 }, (text) => {
-        stopQRCameraScanner();
-        closeDolaModal();
-        document.getElementById('user-input').value = text;
-        showToast('Scanned QR: ' + text);
-      }).catch(() => stopQRCameraScanner());
-    }
-
-    function stopQRCameraScanner() {
-      if (html5QrCodeScanner) { 
-        html5QrCodeScanner.stop().catch(() => {}); 
-        html5QrCodeScanner = null; 
-      }
-      document.getElementById('qr-scanner-panel').classList.add('hidden');
-      if (dolaMode === 'qr') {
-        document.getElementById('dola-upload-area').classList.add('hidden');
-        document.getElementById('qr-cam-btn').classList.remove('hidden');
-      } else {
-        document.getElementById('dola-upload-area').classList.remove('hidden');
-      }
-    }
-
-    function handleDolaImageSelect(e) {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          activeAttachment = evt.target.result;
-          document.getElementById('dola-preview-img').src = activeAttachment;
-          document.getElementById('dola-preview-img').classList.remove('hidden');
-          document.getElementById('dola-upload-placeholder').classList.add('opacity-0');
-          document.getElementById('dola-analysis-status').classList.remove('hidden');
-          
-          document.getElementById('attached-thumb').src = activeAttachment;
-          document.getElementById('attached-name').innerText = file.name;
-          document.getElementById('file-preview-bar').classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-
-    function clearDolaImage(e) {
-      if(e) e.stopPropagation();
-      activeAttachment = null;
-      document.getElementById('dola-preview-img').classList.add('hidden');
-      document.getElementById('dola-upload-placeholder').classList.remove('opacity-0');
-      document.getElementById('dola-analysis-status').classList.add('hidden');
-      document.getElementById('file-preview-bar').classList.add('hidden');
-    }
-
-    function processDolaAction() {
-      const prompt = document.getElementById('dola-prompt-text').value.trim();
-      if (dolaMode === 'qr') {
-        if (prompt) { generateQRCode(prompt); closeDolaModal(); } 
-        else { showToast('Please enter text or URL for QR code.'); }
-      } else {
-        isVisionProcessing = true;
-        indicatorText.innerText = dolaMode === 'generate' ? "Generating/Editing image with Gemini Vision..." : "Analyzing homework with Core Engine...";
-        closeDolaModal();
-        submitPrompt(prompt);
-      }
-    }
-
-    function toggleSidebar(open) {
-      sidebar.classList.toggle('-translate-x-full', !open);
-      drawerBackdrop.classList.toggle('hidden', !open);
-    }
-
-    function toggleTheme() {
-      document.body.classList.toggle('light-mode');
-      showToast(document.body.classList.contains('light-mode') ? 'Light mode enabled' : 'Dark mode enabled');
-    }
-
-    function showToast(message) {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      toast.className = 'glass-card px-3.5 py-2 rounded-xl text-xs font-medium shadow-xl border border-white/10 transition duration-300 transform translate-y-2 opacity-0 pointer-events-auto';
-      toast.innerText = message;
-      container.appendChild(toast);
-      setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
-      setTimeout(() => { toast.classList.add('opacity-0'); setTimeout(() => toast.remove(), 300); }, 2500);
-    }
-
-    async function measurePing() {
-      const start = Date.now();
-      try { await fetch('/api/chat', { method: 'OPTIONS' }); pingBadge.innerText = `${Date.now() - start} ms`; }
-      catch (e) { pingBadge.innerText = 'Offline'; }
-    }
-
-    function toggleModal(id, show) { document.getElementById(id).classList.toggle('hidden', !show); }
-
-    function toggleFeature(flag) {
-      featureFlags[flag] = !featureFlags[flag];
-      const btn = document.getElementById(`toggle-${flag.toLowerCase()}`);
-      if(btn) btn.classList.toggle('opacity-100', featureFlags[flag]);
-      showToast(`${flag} is now ${featureFlags[flag] ? 'ON' : 'OFF'}`);
-    }
-
-    function createNewChat() {
-      const chat = { id: Date.now().toString(), title: 'New Conversation', messages: [] };
-      chats.unshift(chat);
-      currentChatId = chat.id;
-      saveChats();
-      renderChatHistory();
-      renderChatMessages();
-    }
-
-    function saveChats() { localStorage.setItem('academic_master_chats', JSON.stringify(chats)); }
-
-    function clearAllHistory() {
-      chats = [];
-      localStorage.removeItem('academic_master_chats');
-      createNewChat();
-      toggleModal('settings-modal', false);
-    }
-
-    function renderChatHistory(query = '') {
-      chatHistoryContainer.innerHTML = '';
-      const filtered = chats.filter(c => c.title.toLowerCase().includes(query.toLowerCase()));
-      filtered.forEach(chat => {
-        const item = document.createElement('div');
-        const isActive = chat.id === currentChatId;
-        item.className = `p-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition ${isActive ? 'glass-card border-indigo-400/40 font-semibold text-indigo-600 dark:text-indigo-300' : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-70'}`;
-        item.innerHTML = `<span class="truncate flex-1" onclick="selectChat('${chat.id}')">${chat.title}</span>`;
-        chatHistoryContainer.appendChild(item);
-      });
-    }
-
-    function selectChat(id) { currentChatId = id; renderChatHistory(); renderChatMessages(); }
-
-    function copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!'))
-      .catch(() => showToast('Failed to copy.'));
-    }
-
-    function renderChatMessages() {
-      if (bibleInterval) clearInterval(bibleInterval);
-      chatViewport.innerHTML = '';
-      chatViewport.className = "flex-1 overflow-y-auto p-3 md:p-5 space-y-4";
-
-      const activeChat = chats.find(c => c.id === currentChatId);
-      if (!activeChat || activeChat.messages.length === 0) {
-        chatViewport.className = "flex-1 overflow-y-auto p-3 md:p-5 flex flex-col justify-center items-center";
-        const initialRandomIndex = Math.floor(Math.random() * bibleVerses.length);
-        const initialVerse = bibleVerses[initialRandomIndex];
-
-        chatViewport.innerHTML = `
-          <div class="glass-card p-6 rounded-2xl max-w-xl w-full mx-auto text-center border border-amber-500/30 bg-amber-950/10 shadow-2xl my-auto">
-            <div class="flex items-center justify-center gap-2 mb-3">
-              <i data-lucide="book-open" class="w-5 h-5 text-amber-400"></i>
-              <h2 class="font-bold text-xs text-amber-400 uppercase tracking-wider">Scripture</h2>
-            </div>
-            <p id="home-bible-verse" class="text-sm md:text-base text-amber-200 italic leading-relaxed fade-transition font-serif">"${initialVerse.text}"</p>
-            <p id="home-bible-ref" class="text-xs md:text-sm font-bold text-amber-400 mt-3 fade-transition">— ${initialVerse.ref}</p>
-          </div>`;
-        lucide.createIcons();
-        startBibleVerseRotation();
-        return;
-      }
-
-      activeChat.messages.forEach((msg) => {
-        const wrap = document.createElement('div');
-        const isUser = msg.role === 'user';
-        wrap.className = `flex flex-col ${isUser ? 'items-end' : 'items-start'} my-2 relative group`;
-        const bubble = document.createElement('div');
-        bubble.className = `max-w-[92%] md:max-w-[85%] p-3.5 rounded-2xl text-xs leading-relaxed relative ${isUser ? 'bg-indigo-600 text-white' : 'glass-card border border-white/10'}`;
-        
-        if (!isUser && (msg.text.includes('<div') || msg.text.includes('<button') || msg.text.includes('<img'))) {
-          bubble.innerHTML = msg.text;
-        } else if (!isUser && typeof marked !== 'undefined') {
-          bubble.innerHTML = marked.parse(msg.text);
-        } else {
-          bubble.innerText = msg.text;
-        }
-
-        if (!isUser && !msg.text.includes('<button')) {
-          const copyMsgBtn = document.createElement('button');
-          copyMsgBtn.className = "mt-2 px-2.5 py-1 glass-card hover:bg-white/10 text-[10px] text-gray-300 rounded-lg flex items-center gap-1 border border-white/10 transition";
-          copyMsgBtn.innerHTML = `<i data-lucide="copy" class="w-3 h-3"></i> Copy Text`;
-          copyMsgBtn.onclick = () => copyToClipboard(msg.text);
-          bubble.appendChild(copyMsgBtn);
-        }
-
-        const codeBlocks = bubble.querySelectorAll('pre');
-        codeBlocks.forEach((pre) => {
-          const codeEl = pre.querySelector('code');
-          const codeText = codeEl ? codeEl.innerText : pre.innerText;
-
-          const actionBar = document.createElement('div');
-          actionBar.className = "code-action-bar";
-
-          const copyBtn = document.createElement('button');
-          copyBtn.className = "px-2 py-1 bg-black/60 hover:bg-black/80 text-white text-[10px] rounded-lg border border-white/20 flex items-center gap-1 backdrop-blur-md shadow";
-          copyBtn.innerHTML = `<i data-lucide="copy" class="w-3 h-3"></i> Copy`;
-          copyBtn.onclick = (e) => { e.stopPropagation(); copyToClipboard(codeText); };
-
-          const runBtn = document.createElement('button');
-          runBtn.className = "px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] rounded-lg flex items-center gap-1 shadow";
-          runBtn.innerHTML = `<i data-lucide="play" class="w-3 h-3"></i> Run Preview`;
-          runBtn.onclick = (e) => { e.stopPropagation(); openCodePreviewSandbox(codeText); };
-
-          actionBar.appendChild(copyBtn);
-          actionBar.appendChild(runBtn);
-          pre.appendChild(actionBar);
-        });
-
-        wrap.appendChild(bubble);
-        chatViewport.appendChild(wrap);
-      });
-      lucide.createIcons();
-      chatViewport.scrollTop = chatViewport.scrollHeight;
-    }
-
-    function handleFileUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        activeAttachment = evt.target.result;
-        document.getElementById('attached-thumb').src = activeAttachment;
-        document.getElementById('attached-name').innerText = file.name;
-        document.getElementById('file-preview-bar').classList.remove('hidden');
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function removeAttachment() {
-      activeAttachment = null;
-      document.getElementById('file-preview-bar').classList.add('hidden');
-    }
-
-    function toggleVoiceInput() {
-      if (!('webkitSpeechRecognition' in window)) return showToast('Voice recognition not supported');
-      const rec = new webkitSpeechRecognition();
-      rec.lang = 'tl-PH';
-      rec.start();
-      rec.onresult = (e) => { userInput.value += ' ' + e.results[0][0].transcript; };
-    }
-
-    async function submitPrompt(overrideText = null) {
-  const text = overrideText !== null ? overrideText : userInput.value.trim();
-  if (!text && !activeAttachment) return;
-
-  if (!currentChatId) createNewChat();
-
-  const activeChat = chats.find(c => c.id === currentChatId);
-  if (activeChat && activeChat.messages.length === 0) {
-    activeChat.title = text.substring(0, 24) || 'New Chat';
-  }
-
-  // Magdagdag ng user message
-  activeChat.messages.push({ role: 'user', text });
-  
-  // Magdagdag ng blangkong assistant message na lalagyan ng streaming response
-  const assistantMsgIndex = activeChat.messages.length;
-  activeChat.messages.push({ role: 'assistant', text: '' });
-  
-  userInput.value = '';
-  userInput.style.height = 'auto';
-  renderChatMessages();
-
-  statusIndicatorBar.classList.remove('hidden');
-  activeAbortController = new AbortController();
-
-  try {
-    const payload = { 
-      prompt: text, 
-      history: activeChat.messages.slice(0, -2), 
-      image: activeAttachment,
-      mode: dolaMode,
-      webSearch: featureFlags.webSearch,
-      studyMode: featureFlags.studyMode,
-      model: document.getElementById('model-selector').value
-    };
-
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: activeAbortController.signal,
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Server status ${response.status}`);
-    }
-
-    // Basahin ang stream gamit ang TextDecoder
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let accumulatedText = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data:')) {
-          const jsonStr = line.replace(/^data:\s*/, '').trim();
-          if (!jsonStr || jsonStr === '[DONE]') continue;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            if (parsed.error) {
-              accumulatedText += `\n⚠️ ${parsed.error}`;
-            } else {
-              const textChunk = parsed.candidates?.[0]?.content?.parts?.[0]?.text || parsed.response || '';
-              accumulatedText += textChunk;
-            }
-            
-            // I-update ang UI nang realtime
-            activeChat.messages[assistantMsgIndex].text = accumulatedText;
-            renderChatMessages();
-          } catch (e) {
-            // Huwag mag-crash kapag may naputol na JSON chunk sa stream
-          }
-        }
-      }
-    }
-
-    if (!accumulatedText) {
-      activeChat.messages[assistantMsgIndex].text = 'Walang natanggap na response.';
-    }
-
-  } catch (err) {
-    if (err.name !== 'AbortError') {
-      activeChat.messages[assistantMsgIndex].text = `⚠️ Error: ${err.message}`;
-    }
-  } finally {
-    removeAttachment();
-    statusIndicatorBar.classList.add('hidden');
-    saveChats();
-    renderChatHistory();
-    renderChatMessages();
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover">
+
+<title>SchoolBuds AI</title>
+
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+
+<style>
+:root{
+  --bg:#f7f8fc;
+  --panel:#ffffff;
+  --panel2:#f0f2f7;
+  --text:#14161c;
+  --muted:#6b7280;
+  --border:#e5e7eb;
+  --accent:#635bff;
+  --accent2:#5148e8;
+  --danger:#ef4444;
+  --shadow:0 10px 40px rgba(20,25,40,.08);
+  --radius:18px;
+}
+
+*{
+  box-sizing:border-box;
+}
+
+html,
+body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+
+body.dark{
+  --bg:#0b0d12;
+  --panel:#11141b;
+  --panel2:#181c25;
+  --text:#f4f6fb;
+  --muted:#9ca3af;
+  --border:#262b36;
+  --shadow:0 20px 50px rgba(0,0,0,.35);
+}
+
+button,
+textarea,
+input,
+select{
+  font:inherit;
+}
+
+button{
+  cursor:pointer;
+}
+
+button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
+.app{
+  display:grid;
+  grid-template-columns:280px minmax(0,1fr);
+  width:100%;
+  height:100dvh;
+}
+
+.sidebar{
+  min-width:0;
+  background:var(--panel);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  padding:16px;
+  z-index:50;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:8px 7px 18px;
+}
+
+.brand-logo{
+  width:40px;
+  height:40px;
+  border-radius:13px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,#7167ff,#9c7cff);
+  color:white;
+}
+
+.brand-text strong{
+  display:block;
+  font-size:16px;
+}
+
+.brand-text span{
+  color:var(--muted);
+  font-size:11px;
+}
+
+.new-chat{
+  border:0;
+  border-radius:14px;
+  padding:12px;
+  background:var(--accent);
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  font-weight:700;
+  margin-bottom:12px;
+}
+
+.search{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 11px;
+  background:var(--panel2);
+  border-radius:12px;
+  margin-bottom:12px;
+}
+
+.search input{
+  min-width:0;
+  width:100%;
+  border:0;
+  outline:0;
+  color:var(--text);
+  background:transparent;
+}
+
+.history{
+  flex:1;
+  min-height:0;
+  overflow:auto;
+  padding-right:2px;
+}
+
+.history-empty{
+  padding:25px 8px;
+  color:var(--muted);
+  font-size:13px;
+  text-align:center;
+}
+
+.chat-item{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:9px;
+  border-radius:11px;
+  margin-bottom:4px;
+}
+
+.chat-item:hover,
+.chat-item.active{
+  background:var(--panel2);
+}
+
+.chat-item-main{
+  min-width:0;
+  flex:1;
+}
+
+.chat-title{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:13px;
+}
+
+.chat-date{
+  color:var(--muted);
+  font-size:10px;
+  margin-top:2px;
+}
+
+.icon-btn{
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--border);
+  background:var(--panel);
+  color:var(--text);
+  border-radius:11px;
+}
+
+.icon-btn:hover{
+  background:var(--panel2);
+}
+
+.small-icon{
+  width:31px;
+  height:31px;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  display:grid;
+  place-items:center;
+  border-radius:9px;
+}
+
+.small-icon:hover{
+  background:var(--panel2);
+  color:var(--text);
+}
+
+.sidebar-bottom{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  padding-top:10px;
+}
+
+.sidebar-bottom button{
+  border:1px solid var(--border);
+  background:var(--panel);
+  color:var(--text);
+  border-radius:12px;
+  padding:9px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  font-size:12px;
+}
+
+.main{
+  min-width:0;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+}
+
+.topbar{
+  height:62px;
+  flex:none;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 16px;
+  border-bottom:1px solid var(--border);
+  background:color-mix(in srgb,var(--panel) 92%,transparent);
+  backdrop-filter:blur(16px);
+}
+
+.topbar-title{
+  flex:1;
+  min-width:0;
+}
+
+.topbar-title strong{
+  display:block;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.topbar-title span{
+  color:var(--muted);
+  font-size:11px;
+}
+
+.model-select{
+  border:1px solid var(--border);
+  background:var(--panel);
+  color:var(--text);
+  border-radius:10px;
+  padding:8px 10px;
+  max-width:180px;
+  outline:0;
+}
+
+.chat{
+  flex:1;
+  min-height:0;
+  overflow:auto;
+  padding:24px max(16px,calc((100% - 880px)/2));
+  scroll-behavior:smooth;
+}
+
+.welcome{
+  max-width:720px;
+  margin:10vh auto 0;
+  text-align:center;
+}
+
+.welcome-icon{
+  width:65px;
+  height:65px;
+  margin:auto;
+  display:grid;
+  place-items:center;
+  border-radius:20px;
+  color:white;
+  background:linear-gradient(135deg,#635bff,#9a7bff);
+  box-shadow:var(--shadow);
+}
+
+.welcome h1{
+  margin:18px 0 8px;
+  font-size:clamp(25px,5vw,40px);
+}
+
+.welcome p{
+  color:var(--muted);
+  line-height:1.6;
+}
+
+.quick-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+  margin-top:22px;
+}
+
+.quick{
+  border:1px solid var(--border);
+  background:var(--panel);
+  color:var(--text);
+  padding:13px;
+  border-radius:13px;
+  text-align:left;
+}
+
+.quick strong{
+  display:block;
+  font-size:13px;
+}
+
+.quick span{
+  color:var(--muted);
+  font-size:11px;
+}
+
+.message{
+  display:flex;
+  gap:10px;
+  margin:0 auto 22px;
+  max-width:880px;
+}
+
+.message.user{
+  justify-content:flex-end;
+}
+
+.avatar{
+  width:34px;
+  height:34px;
+  flex:none;
+  border-radius:11px;
+  display:grid;
+  place-items:center;
+  background:var(--panel2);
+  color:var(--accent);
+}
+
+.message.user .avatar{
+  order:2;
+}
+
+.bubble{
+  max-width:min(760px,85%);
+  min-width:0;
+}
+
+.user .bubble{
+  background:var(--accent);
+  color:white;
+  padding:11px 14px;
+  border-radius:16px 16px 5px 16px;
+}
+
+.assistant .bubble{
+  padding:3px 2px;
+}
+
+.content{
+  line-height:1.7;
+  font-size:15px;
+}
+
+.content p:first-child{
+  margin-top:0;
+}
+
+.content p:last-child{
+  margin-bottom:0;
+}
+
+.content pre{
+  position:relative;
+  overflow:auto;
+  background:#111318;
+  color:#e8eaf0;
+  border-radius:13px;
+  padding:14px;
+  font-size:13px;
+}
+
+.content code{
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+}
+
+.content :not(pre)>code{
+  background:var(--panel2);
+  padding:2px 5px;
+  border-radius:5px;
+}
+
+.message-actions{
+  display:flex;
+  gap:4px;
+  margin-top:7px;
+}
+
+.typing{
+  display:flex;
+  gap:5px;
+  padding:10px 2px;
+}
+
+.dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--muted);
+  animation:bounce 1s infinite ease-in-out;
+}
+
+.dot:nth-child(2){animation-delay:.12s}
+.dot:nth-child(3){animation-delay:.24s}
+
+@keyframes bounce{
+  0%,80%,100%{transform:translateY(0);opacity:.35}
+  40%{transform:translateY(-5px);opacity:1}
+}
+
+.status{
+  color:var(--muted);
+  font-size:12px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:10px;
+}
+
+.status i{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--accent);
+}
+
+.composer-wrap{
+  flex:none;
+  padding:10px 16px max(12px,env(safe-area-inset-bottom));
+  background:linear-gradient(
+    to top,
+    var(--bg) 72%,
+    transparent
+  );
+}
+
+.composer{
+  max-width:880px;
+  margin:auto;
+  border:1px solid var(--border);
+  background:var(--panel);
+  box-shadow:var(--shadow);
+  border-radius:18px;
+  padding:10px;
+}
+
+.attachment-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  padding:0 4px 7px;
+}
+
+.attachment{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  background:var(--panel2);
+  border-radius:9px;
+  padding:6px 8px;
+  font-size:11px;
+  max-width:190px;
+}
+
+.attachment span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.composer-row{
+  display:flex;
+  align-items:flex-end;
+  gap:7px;
+}
+
+textarea{
+  resize:none;
+  min-height:42px;
+  max-height:190px;
+  flex:1;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:var(--text);
+  line-height:1.5;
+  padding:10px 8px;
+}
+
+.composer-actions{
+  display:flex;
+  gap:6px;
+}
+
+.send{
+  background:var(--accent);
+  color:white;
+  border:0;
+}
+
+.stop{
+  background:var(--danger);
+  color:white;
+  border:0;
+}
+
+.toggle{
+  position:relative;
+  width:38px;
+  height:22px;
+  border-radius:20px;
+  background:var(--panel2);
+  border:1px solid var(--border);
+}
+
+.toggle::after{
+  content:"";
+  position:absolute;
+  width:16px;
+  height:16px;
+  left:2px;
+  top:2px;
+  border-radius:50%;
+  background:var(--muted);
+  transition:.2s;
+}
+
+.toggle.on{
+  background:var(--accent);
+}
+
+.toggle.on::after{
+  left:18px;
+  background:#fff;
+}
+
+.tools{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  padding:6px 3px 0;
+  overflow:auto;
+}
+
+.tool{
+  flex:none;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  border:1px solid transparent;
+  background:transparent;
+  color:var(--muted);
+  padding:7px 8px;
+  border-radius:9px;
+  font-size:11px;
+}
+
+.tool:hover,
+.tool.active{
+  background:var(--panel2);
+  color:var(--text);
+}
+
+.tool.active{
+  color:var(--accent);
+}
+
+.tool-label{
+  display:inline;
+}
+
+.ping{
+  margin-left:auto;
+  white-space:nowrap;
+  font-size:10px;
+  color:var(--muted);
+}
+
+.drawer-overlay{
+  display:none;
+}
+
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:100;
+  background:rgba(0,0,0,.5);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+
+.modal-backdrop.show{
+  display:flex;
+}
+
+.modal{
+  width:min(680px,100%);
+  max-height:min(90dvh,800px);
+  overflow:auto;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:20px;
+  box-shadow:var(--shadow);
+}
+
+.modal-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:16px;
+  border-bottom:1px solid var(--border);
+}
+
+.modal-head strong{
+  flex:1;
+}
+
+.modal-body{
+  padding:16px;
+}
+
+.setting{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
+  padding:13px 0;
+  border-bottom:1px solid var(--border);
+}
+
+.setting:last-child{
+  border-bottom:0;
+}
+
+.setting span{
+  color:var(--muted);
+  font-size:12px;
+}
+
+.setting select{
+  border:1px solid var(--border);
+  background:var(--panel);
+  color:var(--text);
+  border-radius:9px;
+  padding:8px;
+}
+
+.image-drop{
+  border:2px dashed var(--border);
+  border-radius:16px;
+  padding:25px;
+  text-align:center;
+  cursor:pointer;
+}
+
+.image-drop:hover{
+  border-color:var(--accent);
+}
+
+.image-preview{
+  width:100%;
+  max-height:320px;
+  object-fit:contain;
+  border-radius:12px;
+  margin-top:12px;
+  display:none;
+}
+
+.image-prompt{
+  width:100%;
+  min-height:100px;
+  margin-top:12px;
+  border:1px solid var(--border);
+  background:var(--panel2);
+  color:var(--text);
+  border-radius:12px;
+  padding:12px;
+  outline:0;
+}
+
+.primary{
+  width:100%;
+  border:0;
+  background:var(--accent);
+  color:white;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+  font-weight:700;
+}
+
+.generated{
+  margin-top:15px;
+  display:none;
+}
+
+.generated img{
+  width:100%;
+  border-radius:14px;
+}
+
+.toast-area{
+  position:fixed;
+  right:15px;
+  bottom:15px;
+  z-index:300;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.toast{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:var(--panel);
+  color:var(--text);
+  border:1px solid var(--border);
+  box-shadow:var(--shadow);
+  padding:11px 13px;
+  border-radius:12px;
+  font-size:12px;
+  animation:toastIn .2s ease;
+}
+
+@keyframes toastIn{
+  from{
+    transform:translateY(10px);
+    opacity:0
   }
 }
-    function stopGeneration() { if (activeAbortController) activeAbortController.abort(); }
-  </script>
+
+.mobile-menu{
+  display:none;
+}
+
+.calc-display{
+  background:var(--panel2);
+  border:1px solid var(--border);
+  border-radius:13px;
+  padding:15px;
+  font-size:24px;
+  text-align:right;
+  margin-bottom:10px;
+  overflow:auto;
+}
+
+.calc-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:7px;
+}
+
+.calc-grid button{
+  border:1px solid var(--border);
+  background:var(--panel2);
+  color:var(--text);
+  border-radius:10px;
+  padding:13px 4px;
+}
+
+@media(max-width:820px){
+  .app{
+    grid-template-columns:1fr;
+  }
+
+  .sidebar{
+    position:fixed;
+    left:0;
+    top:0;
+    bottom:0;
+    width:min(300px,86vw);
+    transform:translateX(-105%);
+    transition:transform .25s ease;
+    box-shadow:var(--shadow);
+  }
+
+  .sidebar.open{
+    transform:translateX(0);
+  }
+
+  .drawer-overlay{
+    position:fixed;
+    inset:0;
+    z-index:40;
+    background:rgba(0,0,0,.45);
+  }
+
+  .drawer-overlay.show{
+    display:block;
+  }
+
+  .mobile-menu{
+    display:grid;
+  }
+
+  .model-select{
+    max-width:135px;
+  }
+
+  .chat{
+    padding:16px 12px;
+  }
+
+  .composer-wrap{
+    padding-left:9px;
+    padding-right:9px;
+  }
+
+  .tool-label{
+    display:none;
+  }
+
+  .quick-grid{
+    grid-template-columns:1fr;
+  }
+
+  .welcome{
+    margin-top:5vh;
+  }
+
+  .message{
+    gap:7px;
+  }
+
+  .bubble{
+    max-width:90%;
+  }
+}
+
+@media(max-width:460px){
+  .topbar{
+    padding:8px 9px;
+  }
+
+  .topbar-title span{
+    display:none;
+  }
+
+  .model-select{
+    max-width:115px;
+    font-size:11px;
+  }
+
+  .avatar{
+    width:30px;
+    height:30px;
+  }
+
+  .content{
+    font-size:14px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <aside class="sidebar" id="sidebar">
+
+    <div class="brand">
+      <div class="brand-logo">
+        <i data-lucide="graduation-cap"></i>
+      </div>
+
+      <div class="brand-text">
+        <strong>SchoolBuds AI</strong>
+        <span>Academic AI Tutor</span>
+      </div>
+
+      <button class="small-icon mobile-menu" id="closeDrawer">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <button class="new-chat" id="newChat">
+      <i data-lucide="plus"></i>
+      New chat
+    </button>
+
+    <div class="search">
+      <i data-lucide="search" size="16"></i>
+      <input
+        id="searchHistory"
+        placeholder="Search chats..."
+        autocomplete="off">
+    </div>
+
+    <div class="history" id="history"></div>
+
+    <div class="sidebar-bottom">
+
+      <button id="themeBtn">
+        <i data-lucide="sun-moon"></i>
+        Theme
+      </button>
+
+      <button id="settingsBtn">
+        <i data-lucide="settings"></i>
+        Settings
+      </button>
+
+    </div>
+
+  </aside>
+
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+
+  <main class="main">
+
+    <header class="topbar">
+
+      <button
+        class="icon-btn mobile-menu"
+        id="openDrawer"
+        aria-label="Menu">
+        <i data-lucide="menu"></i>
+      </button>
+
+      <div class="topbar-title">
+        <strong id="chatTitle">New Chat</strong>
+        <span id="modeLabel">Academic Master • Gemini 3.7 Flash</span>
+      </div>
+
+      <select class="model-select" id="modelSelect">
+        <option value="gemini-3.7-flash">
+          Gemini 3.7 Flash
+        </option>
+        <option value="gemini-3.6-flash">
+          Gemini 3.6 Flash
+        </option>
+      </select>
+
+    </header>
+
+    <section class="chat" id="chat">
+
+      <div class="welcome" id="welcome">
+
+        <div class="welcome-icon">
+          <i data-lucide="graduation-cap" size="34"></i>
+        </div>
+
+        <h1>What can I help you study?</h1>
+
+        <p>
+          Your student-focused AI tutor for lessons, homework,
+          coding, research, file analysis and more.
+        </p>
+
+        <div class="quick-grid">
+
+          <button class="quick"
+                  data-prompt="Explain this lesson to me step by step.">
+            <strong>Explain a lesson</strong>
+            <span>Learn difficult concepts</span>
+          </button>
+
+          <button class="quick"
+                  data-prompt="Help me solve this math problem and explain every step.">
+            <strong>Solve a problem</strong>
+            <span>Math and science help</span>
+          </button>
+
+          <button class="quick"
+                  data-prompt="Help me understand and improve this code.">
+            <strong>Code with me</strong>
+            <span>Programming assistant</span>
+          </button>
+
+          <button class="quick"
+                  data-prompt="Create a short study guide for this topic.">
+            <strong>Study guide</strong>
+            <span>Review faster</span>
+          </button>
+
+        </div>
+
+      </div>
+
+      <div id="messages"></div>
+
+    </section>
+
+    <div class="composer-wrap">
+
+      <div class="composer">
+
+        <div id="attachments" class="attachment-list"></div>
+
+        <div class="composer-row">
+
+          <button
+            class="icon-btn"
+            id="attachBtn"
+            title="Attach file">
+            <i data-lucide="paperclip"></i>
+          </button>
+
+          <input
+            id="fileInput"
+            type="file"
+            hidden
+            multiple
+            accept=".txt,.md,.csv,.json,.pdf,.png,.jpg,.jpeg,.webp">
+
+          <textarea
+            id="prompt"
+            rows="1"
+            placeholder="Message SchoolBuds AI..."></textarea>
+
+          <div class="composer-actions">
+
+            <button
+              class="icon-btn"
+              id="voiceBtn"
+              title="Voice input">
+              <i data-lucide="mic"></i>
+            </button>
+
+            <button
+              class="icon-btn send"
+              id="sendBtn"
+              title="Send">
+              <i data-lucide="arrow-up"></i>
+            </button>
+
+            <button
+              class="icon-btn stop"
+              id="stopBtn"
+              title="Stop"
+              style="display:none">
+              <i data-lucide="square"></i>
+            </button>
+
+          </div>
+
+        </div>
+
+        <div class="tools">
+
+          <button class="tool"
+                  id="webBtn"
+                  title="Google Search">
+            <i data-lucide="globe-2"></i>
+            <span class="tool-label">Web Search</span>
+          </button>
+
+          <button class="tool"
+                  id="studyBtn"
+                  title="Study Mode">
+            <i data-lucide="book-open"></i>
+            <span class="tool-label">Study Mode</span>
+          </button>
+
+          <button class="tool"
+                  id="academicBtn"
+                  title="Academic Master">
+            <i data-lucide="brain"></i>
+            <span class="tool-label">Academic Master</span>
+          </button>
+
+          <button class="tool"
+                  id="strictBtn"
+                  title="Strict Tutoring">
+            <i data-lucide="target"></i>
+            <span class="tool-label">Strict Subject</span>
+          </button>
+
+          <button class="tool"
+                  id="codingBtn"
+                  title="Coding Assistant">
+            <i data-lucide="code-2"></i>
+            <span class="tool-label">Coding</span>
+          </button>
+
+          <button class="tool"
+                  id="imageBtn"
+                  title="Dola Image Editor">
+            <i data-lucide="image"></i>
+            <span class="tool-label">Dola Image</span>
+          </button>
+
+          <button class="tool"
+                  id="calcBtn"
+                  title="Calculator">
+            <i data-lucide="calculator"></i>
+            <span class="tool-label">Calculator</span>
+          </button>
+
+          <span class="ping" id="ping">
+            Ping: — ms
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+</div>
+
+
+<!-- SETTINGS MODAL -->
+
+<div class="modal-backdrop" id="settingsModal">
+
+  <div class="modal">
+
+    <div class="modal-head">
+      <strong>Settings</strong>
+
+      <button class="small-icon" data-close="settingsModal">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+
+      <div class="setting">
+        <div>
+          <strong>Thinking level</strong><br>
+          <span>Controls reasoning effort.</span>
+        </div>
+
+        <select id="thinkingSelect">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+
+      <div class="setting">
+        <div>
+          <strong>Dark mode</strong><br>
+          <span>Change interface appearance.</span>
+        </div>
+
+        <button class="icon-btn" id="darkToggle">
+          <i data-lucide="moon"></i>
+        </button>
+      </div>
+
+      <div class="setting">
+        <div>
+          <strong>Local history</strong><br>
+          <span>Chats are stored in this browser.</span>
+        </div>
+
+        <button class="icon-btn" id="clearHistory">
+          <i data-lucide="trash-2"></i>
+        </button>
+      </div>
+
+      <div class="setting">
+        <div>
+          <strong>Developer</strong><br>
+          <span>SchoolBuds AI • Jay-Ar Lee Espiritu</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- IMAGE MODAL -->
+
+<div class="modal-backdrop" id="imageModal">
+
+  <div class="modal">
+
+    <div class="modal-head">
+      <strong>Dola Image Studio</strong>
+
+      <button class="small-icon" data-close="imageModal">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+
+      <div class="image-drop" id="imageDrop">
+
+        <i data-lucide="image-plus" size="30"></i>
+
+        <div style="margin-top:8px">
+          Upload an image to edit
+        </div>
+
+        <small style="color:var(--muted)">
+          Or leave empty to generate a new image
+        </small>
+
+      </div>
+
+      <input
+        type="file"
+        id="imageInput"
+        hidden
+        accept="image/png,image/jpeg,image/webp">
+
+      <img
+        id="imagePreview"
+        class="image-preview">
+
+      <textarea
+        id="imagePrompt"
+        class="image-prompt"
+        placeholder="Describe what you want to create or change..."></textarea>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+        margin-top:10px">
+
+        <select id="aspectRatio"
+                style="
+                padding:10px;
+                border:1px solid var(--border);
+                border-radius:10px;
+                background:var(--panel);
+                color:var(--text)">
+          <option value="1:1">1:1</option>
+          <option value="16:9">16:9</option>
+          <option value="9:16">9:16</option>
+          <option value="4:3">4:3</option>
+          <option value="3:4">3:4</option>
+        </select>
+
+        <select id="imageSize"
+                style="
+                padding:10px;
+                border:1px solid var(--border);
+                border-radius:10px;
+                background:var(--panel);
+                color:var(--text)">
+          <option value="1K">1K</option>
+          <option value="2K">2K</option>
+          <option value="4K">4K</option>
+        </select>
+
+      </div>
+
+      <button class="primary" id="generateImage">
+        <i data-lucide="wand-sparkles"></i>
+        Generate / Edit Image
+      </button>
+
+      <div class="generated" id="generatedImage">
+
+        <img id="generatedImageEl">
+
+        <button class="primary" id="downloadImage">
+          <i data-lucide="download"></i>
+          Save Image
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- CALCULATOR -->
+
+<div class="modal-backdrop" id="calcModal">
+
+  <div class="modal">
+
+    <div class="modal-head">
+      <strong>Calculator</strong>
+
+      <button class="small-icon" data-close="calcModal">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+
+      <div class="calc-display" id="calcDisplay">0</div>
+
+      <div class="calc-grid">
+
+        <button data-calc="C">C</button>
+        <button data-calc="(">(</button>
+        <button data-calc=")">)</button>
+        <button data-calc="/">÷</button>
+
+        <button data-calc="7">7</button>
+        <button data-calc="8">8</button>
+        <button data-calc="9">9</button>
+        <button data-calc="*">×</button>
+
+        <button data-calc="4">4</button>
+        <button data-calc="5">5</button>
+        <button data-calc="6">6</button>
+        <button data-calc="-">−</button>
+
+        <button data-calc="1">1</button>
+        <button data-calc="2">2</button>
+        <button data-calc="3">3</button>
+        <button data-calc="+">+</button>
+
+        <button data-calc="0">0</button>
+        <button data-calc=".">.</button>
+        <button data-calc="DEL">⌫</button>
+        <button data-calc="=">=</button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<div class="toast-area" id="toastArea"></div>
+
+
+<script>
+"use strict";
+
+/* =========================================================
+   SCHOOLBUDS AI FRONTEND
+   ========================================================= */
+
+const $ = selector => document.querySelector(selector);
+
+const state = {
+  chats: JSON.parse(localStorage.getItem("schoolbuds_chats") || "[]"),
+  currentId: null,
+  messages: [],
+  attachments: [],
+  controller: null,
+  generating: false,
+  webSearch: false,
+  studyMode: false,
+  academicMaster: true,
+  strictSubject: false,
+  codingAssistant: false,
+  dark: localStorage.getItem("schoolbuds_dark") === "1",
+  thinkingLevel: localStorage.getItem("schoolbuds_thinking") || "medium",
+  imageData: null,
+  imageMime: "image/png"
+};
+
+if (state.dark) {
+  document.body.classList.add("dark");
+}
+
+$("#thinkingSelect").value = state.thinkingLevel;
+
+
+/* =========================================================
+   ICONS
+   ========================================================= */
+
+function icons() {
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+icons();
+
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+
+function toast(message, icon = "info") {
+  const el = document.createElement("div");
+  el.className = "toast";
+
+  el.innerHTML = `
+    <i data-lucide="${icon}" size="16"></i>
+    <span></span>
+  `;
+
+  el.querySelector("span").textContent = message;
+
+  $("#toastArea").appendChild(el);
+  icons();
+
+  setTimeout(() => {
+    el.remove();
+  }, 3000);
+}
+
+
+/* =========================================================
+   CHAT STORAGE
+   ========================================================= */
+
+function saveChats() {
+  localStorage.setItem(
+    "schoolbuds_chats",
+    JSON.stringify(state.chats)
+  );
+}
+
+function createChat() {
+  const id =
+    Date.now().toString(36) +
+    Math.random().toString(36).slice(2);
+
+  const chat = {
+    id,
+    title: "New Chat",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    messages: []
+  };
+
+  state.chats.unshift(chat);
+  state.currentId = id;
+  state.messages = [];
+
+  saveChats();
+  renderHistory();
+  renderMessages();
+
+  $("#chatTitle").textContent = "New Chat";
+  $("#welcome").style.display = "block";
+
+  closeDrawer();
+}
+
+function currentChat() {
+  return state.chats.find(
+    x => x.id === state.currentId
+  );
+}
+
+function ensureChat() {
+  if (!state.currentId || !currentChat()) {
+    createChat();
+  }
+}
+
+function saveCurrent() {
+  const chat = currentChat();
+
+  if (!chat) return;
+
+  chat.messages = state.messages;
+  chat.updatedAt = Date.now();
+
+  const firstUser = state.messages.find(
+    m => m.role === "user"
+  );
+
+  if (
+    firstUser &&
+    chat.title === "New Chat"
+  ) {
+    chat.title =
+      firstUser.content
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 48) || "New Chat";
+  }
+
+  saveChats();
+  renderHistory();
+}
+
+
+/* =========================================================
+   HISTORY
+   ========================================================= */
+
+function renderHistory(filter = "") {
+  const box = $("#history");
+  box.innerHTML = "";
+
+  const needle = filter.trim().toLowerCase();
+
+  const list = state.chats.filter(chat =>
+    !needle ||
+    chat.title.toLowerCase().includes(needle) ||
+    chat.messages.some(
+      m => m.content?.toLowerCase().includes(needle)
+    )
+  );
+
+  if (!list.length) {
+    box.innerHTML = `
+      <div class="history-empty">
+        No chats found.
+      </div>
+    `;
+    return;
+  }
+
+  list.forEach(chat => {
+    const item = document.createElement("div");
+
+    item.className =
+      "chat-item" +
+      (chat.id === state.currentId ? " active" : "");
+
+    item.innerHTML = `
+      <i data-lucide="message-circle" size="15"></i>
+
+      <div class="chat-item-main">
+        <div class="chat-title"></div>
+        <div class="chat-date"></div>
+      </div>
+
+      <button class="small-icon rename"
+              title="Rename">
+        <i data-lucide="pencil" size="14"></i>
+      </button>
+
+      <button class="small-icon delete"
+              title="Delete">
+        <i data-lucide="trash-2" size="14"></i>
+      </button>
+    `;
+
+    item.querySelector(".chat-title").textContent =
+      chat.title;
+
+    item.querySelector(".chat-date").textContent =
+      new Date(chat.updatedAt).toLocaleDateString();
+
+    item.addEventListener("click", e => {
+      if (
+        e.target.closest(".rename") ||
+        e.target.closest(".delete")
+      ) return;
+
+      loadChat(chat.id);
+    });
+
+    item.querySelector(".rename")
+      .addEventListener("click", e => {
+        e.stopPropagation();
+
+        const title = prompt(
+          "Rename chat:",
+          chat.title
+        );
+
+        if (title?.trim()) {
+          chat.title = title.trim().slice(0, 80);
+          saveChats();
+          renderHistory(filter);
+        }
+      });
+
+    item.querySelector(".delete")
+      .addEventListener("click", e => {
+        e.stopPropagation();
+
+        if (
+          !confirm(
+            `Delete "${chat.title}"?`
+          )
+        ) return;
+
+        state.chats =
+          state.chats.filter(
+            x => x.id !== chat.id
+          );
+
+        if (state.currentId === chat.id) {
+          state.currentId = null;
+          state.messages = [];
+          renderMessages();
+          $("#chatTitle").textContent =
+            "New Chat";
+          $("#welcome").style.display =
+            "block";
+        }
+
+        saveChats();
+        renderHistory();
+      });
+
+    box.appendChild(item);
+  });
+
+  icons();
+}
+
+function loadChat(id) {
+  const chat = state.chats.find(
+    x => x.id === id
+  );
+
+  if (!chat) return;
+
+  state.currentId = id;
+  state.messages =
+    structuredClone(chat.messages || []);
+
+  $("#chatTitle").textContent =
+    chat.title;
+
+  renderHistory();
+  renderMessages();
+
+  closeDrawer();
+}
+
+
+/* =========================================================
+   MESSAGE RENDERING
+   ========================================================= */
+
+function renderMarkdown(text) {
+  const html = marked.parse(text || "");
+
+  return DOMPurify.sanitize(html);
+}
+
+function renderMessages() {
+  const box = $("#messages");
+  box.innerHTML = "";
+
+  if (!state.messages.length) {
+    $("#welcome").style.display = "block";
+    return;
+  }
+
+  $("#welcome").style.display = "none";
+
+  state.messages.forEach((message, index) => {
+    addMessageElement(
+      message.role,
+      message.content,
+      index
+    );
+  });
+
+  scrollBottom();
+}
+
+function addMessageElement(
+  role,
+  content,
+  index
+) {
+  const wrapper = document.createElement("div");
+
+  wrapper.className =
+    "message " +
+    (role === "user"
+      ? "user"
+      : "assistant");
+
+  const avatarIcon =
+    role === "user"
+      ? "user"
+      : "graduation-cap";
+
+  wrapper.innerHTML = `
+    <div class="avatar">
+      <i data-lucide="${avatarIcon}"
+         size="17"></i>
+    </div>
+
+    <div class="bubble">
+
+      <div class="content"></div>
+
+      ${
+        role === "assistant"
+          ? `
+            <div class="message-actions">
+
+              <button
+                class="small-icon copy-message"
+                title="Copy">
+                <i data-lucide="copy"></i>
+              </button>
+
+              <button
+                class="small-icon regen-message"
+                title="Regenerate">
+                <i data-lucide="refresh-cw"></i>
+              </button>
+
+              <button
+                class="small-icon feedback-up"
+                title="Helpful">
+                <i data-lucide="thumbs-up"></i>
+              </button>
+
+              <button
+                class="small-icon feedback-down"
+                title="Not helpful">
+                <i data-lucide="thumbs-down"></i>
+              </button>
+
+            </div>
+          `
+          : ""
+      }
+
+    </div>
+  `;
+
+  const contentEl =
+    wrapper.querySelector(".content");
+
+  if (role === "assistant") {
+    contentEl.innerHTML =
+      renderMarkdown(content);
+  } else {
+    contentEl.textContent = content;
+  }
+
+  if (role === "assistant") {
+
+    wrapper
+      .querySelector(".copy-message")
+      .onclick = () => {
+        navigator.clipboard.writeText(
+          content
+        );
+
+        toast(
+          "Copied to clipboard",
+          "copy"
+        );
+      };
+
+    wrapper
+      .querySelector(".regen-message")
+      .onclick = () => {
+        regenerate(index);
+      };
+
+    wrapper
+      .querySelector(".feedback-up")
+      .onclick = () => sendFeedback(
+        "positive",
+        index
+      );
+
+    wrapper
+      .querySelector(".feedback-down")
+      .onclick = () => sendFeedback(
+        "negative",
+        index
+      );
+  }
+
+  $("#messages").appendChild(wrapper);
+  icons();
+
+  return wrapper;
+}
+
+
+/* =========================================================
+   STATUS INDICATORS
+   ========================================================= */
+
+function showThinking() {
+  const el = document.createElement("div");
+
+  el.id = "generationStatus";
+  el.className = "status";
+
+  el.innerHTML = `
+    <i></i>
+    <span>Thinking...</span>
+  `;
+
+  $("#messages").appendChild(el);
+  scrollBottom();
+
+  const labels = [
+    "Thinking...",
+    "Solving...",
+    "Coding...",
+    "Finding...",
+    "Analyzing..."
+  ];
+
+  let index = 0;
+
+  el._timer = setInterval(() => {
+    index =
+      (index + 1) % labels.length;
+
+    el.querySelector("span")
+      .textContent = labels[index];
+  }, 1400);
+}
+
+function hideThinking() {
+  const el =
+    $("#generationStatus");
+
+  if (!el) return;
+
+  clearInterval(el._timer);
+  el.remove();
+}
+
+
+/* =========================================================
+   STREAMING CHAT
+   ========================================================= */
+
+async function sendMessage(customText = null) {
+
+  if (state.generating) return;
+
+  const text =
+    customText ??
+    $("#prompt").value.trim();
+
+  if (!text && !state.attachments.length) {
+    return;
+  }
+
+  ensureChat();
+
+  const userContent =
+    text ||
+    "Please analyze the attached file(s).";
+
+  state.messages.push({
+    role: "user",
+    content: userContent
+  });
+
+  addMessageElement(
+    "user",
+    userContent,
+    state.messages.length - 1
+  );
+
+  $("#prompt").value = "";
+  resizeTextarea();
+
+  state.attachments.forEach(file => {
+    // attachments remain visible until request completes
+  });
+
+  const assistantMessage = {
+    role: "assistant",
+    content: ""
+  };
+
+  state.messages.push(
+    assistantMessage
+  );
+
+  const assistantEl =
+    addMessageElement(
+      "assistant",
+      "",
+      state.messages.length - 1
+    );
+
+  const contentEl =
+    assistantEl.querySelector(".content");
+
+  state.generating = true;
+  state.controller =
+    new AbortController();
+
+  $("#sendBtn").style.display = "none";
+  $("#stopBtn").style.display = "grid";
+
+  showThinking();
+
+  const started = performance.now();
+
+  try {
+
+    const response = await fetch(
+      "/api/chat",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+        signal:
+          state.controller.signal,
+        body: JSON.stringify({
+          messages: state.messages
+            .slice(0, -1),
+
+          files:
+            state.attachments,
+
+          model:
+            $("#modelSelect").value,
+
+          webSearch:
+            state.webSearch,
+
+          studyMode:
+            state.studyMode,
+
+          academicMaster:
+            state.academicMaster,
+
+          strictSubject:
+            state.strictSubject,
+
+          codingAssistant:
+            state.codingAssistant,
+
+          thinkingLevel:
+            state.thinkingLevel
+        })
+      }
+    );
+
+    const firstChunk =
+      performance.now();
+
+    $("#ping").textContent =
+      "Ping: " +
+      Math.round(
+        firstChunk - started
+      ) +
+      " ms";
+
+    if (!response.ok) {
+      const data =
+        await response.json()
+          .catch(() => ({}));
+
+      throw new Error(
+        data.error ||
+        "Request failed."
+      );
+    }
+
+    const reader =
+      response.body.getReader();
+
+    const decoder =
+      new TextDecoder();
+
+    let buffer = "";
+
+    hideThinking();
+
+    while (true) {
+
+      const {value, done} =
+        await reader.read();
+
+      if (done) break;
+
+      buffer +=
+        decoder.decode(
+          value,
+          {stream:true}
+        );
+
+      const events =
+        buffer.split("\n\n");
+
+      buffer =
+        events.pop() || "";
+
+      for (const event of events) {
+
+        const line =
+          event
+            .split("\n")
+            .find(
+              x => x.startsWith("data:")
+            );
+
+        if (!line) continue;
+
+        const raw =
+          line.slice(5).trim();
+
+        if (!raw) continue;
+
+        const data =
+          JSON.parse(raw);
+
+        if (data.type === "text") {
+
+          assistantMessage.content +=
+            data.text;
+
+          contentEl.innerHTML =
+            renderMarkdown(
+              assistantMessage.content
+            );
+
+          scrollBottom();
+        }
+
+        if (data.type === "error") {
+          throw new Error(
+            data.error
+          );
+        }
+      }
+    }
+
+    if (!assistantMessage.content) {
+      assistantMessage.content =
+        "I couldn't generate a response.";
+    }
+
+    contentEl.innerHTML =
+      renderMarkdown(
+        assistantMessage.content
+      );
+
+    saveCurrent();
+
+  } catch (error) {
+
+    hideThinking();
+
+    if (
+      error.name === "AbortError"
+    ) {
+      assistantMessage.content +=
+        "\n\n*Generation stopped.*";
+    } else {
+      assistantMessage.content =
+        "⚠️ " +
+        (error.message ||
+          "Something went wrong.");
+    }
+
+    contentEl.innerHTML =
+      renderMarkdown(
+        assistantMessage.content
+      );
+
+    saveCurrent();
+
+  } finally {
+
+    state.generating = false;
+    state.controller = null;
+
+    $("#sendBtn").style.display =
+      "grid";
+
+    $("#stopBtn").style.display =
+      "none";
+
+    state.attachments = [];
+
+    renderAttachments();
+    resizeTextarea();
+  }
+}
+
+
+/* =========================================================
+   STOP
+   ========================================================= */
+
+$("#stopBtn").onclick = () => {
+
+  if (state.controller) {
+    state.controller.abort();
+  }
+
+};
+
+
+/* =========================================================
+   REGENERATE
+   ========================================================= */
+
+async function regenerate(index) {
+
+  if (state.generating) return;
+
+  if (index <= 0) return;
+
+  let userIndex = index - 1;
+
+  while (
+    userIndex >= 0 &&
+    state.messages[userIndex].role !== "user"
+  ) {
+    userIndex--;
+  }
+
+  if (userIndex < 0) return;
+
+  state.messages =
+    state.messages.slice(
+      0,
+      userIndex + 1
+    );
+
+  renderMessages();
+
+  await sendMessage(
+    state.messages[userIndex].content
+  );
+}
+
+
+/* =========================================================
+   FEEDBACK
+   ========================================================= */
+
+async function sendFeedback(type, index) {
+
+  try {
+
+    await fetch(
+      "/api/feedback",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+        body: JSON.stringify({
+          type,
+          messageId:
+            String(index)
+        })
+      }
+    );
+
+    toast(
+      type === "positive"
+        ? "Thanks for the feedback!"
+        : "Feedback received.",
+      "check"
+    );
+
+  } catch {
+    toast(
+      "Feedback could not be sent.",
+      "alert-circle"
+    );
+  }
+}
+
+
+/* =========================================================
+   TEXTAREA
+   ========================================================= */
+
+function resizeTextarea() {
+
+  const el = $("#prompt");
+
+  el.style.height = "auto";
+
+  el.style.height =
+    Math.min(
+      el.scrollHeight,
+      190
+    ) + "px";
+}
+
+$("#prompt").addEventListener(
+  "input",
+  resizeTextarea
+);
+
+$("#prompt").addEventListener(
+  "keydown",
+  e => {
+
+    if (
+      e.key === "Enter" &&
+      !e.shiftKey
+    ) {
+      e.preventDefault();
+      sendMessage();
+    }
+
+  }
+);
+
+
+/* =========================================================
+   FILE ATTACHMENTS
+   ========================================================= */
+
+$("#attachBtn").onclick =
+  () => $("#fileInput").click();
+
+$("#fileInput").addEventListener(
+  "change",
+  async e => {
+
+    const files =
+      [...e.target.files];
+
+    for (const file of files.slice(0,5)) {
+
+      const data =
+        await fileToBase64(file);
+
+      state.attachments.push({
+        name: file.name,
+        mimeType:
+          file.type ||
+          "application/octet-stream",
+        data
+      });
+    }
+
+    renderAttachments();
+
+    e.target.value = "";
+  }
+);
+
+function fileToBase64(file) {
+
+  return new Promise(
+    (resolve, reject) => {
+
+      const reader =
+        new FileReader();
+
+      reader.onload = () => {
+
+        const result =
+          String(reader.result);
+
+        resolve(
+          result.split(",")[1]
+        );
+      };
+
+      reader.onerror =
+        reject;
+
+      reader.readAsDataURL(file);
+    }
+  );
+}
+
+function renderAttachments() {
+
+  const box =
+    $("#attachments");
+
+  box.innerHTML = "";
+
+  state.attachments.forEach(
+    (file, index) => {
+
+      const el =
+        document.createElement("div");
+
+      el.className =
+        "attachment";
+
+      el.innerHTML = `
+        <i data-lucide="file" size="14"></i>
+        <span></span>
+        <button
+          class="small-icon"
+          style="width:22px;height:22px">
+          <i data-lucide="x" size="13"></i>
+        </button>
+      `;
+
+      el.querySelector("span")
+        .textContent =
+        file.name;
+
+      el.querySelector("button")
+        .onclick = () => {
+
+          state.attachments.splice(
+            index,
+            1
+          );
+
+          renderAttachments();
+        };
+
+      box.appendChild(el);
+    }
+  );
+
+  icons();
+}
+
+
+/* =========================================================
+   VOICE INPUT
+   ========================================================= */
+
+let recognition = null;
+
+$("#voiceBtn").onclick = () => {
+
+  const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    toast(
+      "Voice input is not supported by this browser.",
+      "mic-off"
+    );
+    return;
+  }
+
+  if (recognition) {
+    recognition.stop();
+    recognition = null;
+    return;
+  }
+
+  recognition =
+    new SpeechRecognition();
+
+  recognition.lang =
+    navigator.language || "en-US";
+
+  recognition.interimResults =
+    true;
+
+  recognition.continuous =
+    false;
+
+  recognition.onresult = event => {
+
+    let text = "";
+
+    for (
+      let i = event.resultIndex;
+      i < event.results.length;
+      i++
+    ) {
+      text +=
+        event.results[i][0].transcript;
+    }
+
+    $("#prompt").value =
+      text;
+
+    resizeTextarea();
+  };
+
+  recognition.onerror = () => {
+    toast(
+      "Voice input error.",
+      "mic-off"
+    );
+
+    recognition = null;
+  };
+
+  recognition.onend = () => {
+    recognition = null;
+  };
+
+  recognition.start();
+
+  toast(
+    "Listening...",
+    "mic"
+  );
+};
+
+
+/* =========================================================
+   TOGGLES
+   ========================================================= */
+
+function toggleTool(
+  button,
+  property,
+  label
+) {
+
+  state[property] =
+    !state[property];
+
+  button.classList.toggle(
+    "active",
+    state[property]
+  );
+
+  toast(
+    `${label} ${
+      state[property]
+        ? "enabled"
+        : "disabled"
+    }`,
+    state[property]
+      ? "check"
+      : "x"
+  );
+}
+
+$("#webBtn").onclick =
+  () => toggleTool(
+    $("#webBtn"),
+    "webSearch",
+    "Web Search"
+  );
+
+$("#studyBtn").onclick =
+  () => toggleTool(
+    $("#studyBtn"),
+    "studyMode",
+    "Study Mode"
+  );
+
+$("#academicBtn").onclick =
+  () => toggleTool(
+    $("#academicBtn"),
+    "academicMaster",
+    "Academic Master"
+  );
+
+$("#strictBtn").onclick =
+  () => toggleTool(
+    $("#strictBtn"),
+    "strictSubject",
+    "Strict Tutoring"
+  );
+
+$("#codingBtn").onclick =
+  () => toggleTool(
+    $("#codingBtn"),
+    "codingAssistant",
+    "Coding Assistant"
+  );
+
+
+/* =========================================================
+   MODE LABEL
+   ========================================================= */
+
+function updateModeLabel() {
+
+  const modes = [];
+
+  if (state.academicMaster)
+    modes.push("Academic Master");
+
+  if (state.studyMode)
+    modes.push("Study");
+
+  if (state.strictSubject)
+    modes.push("Strict Subject");
+
+  if (state.codingAssistant)
+    modes.push("Coding");
+
+  if (state.webSearch)
+    modes.push("Web");
+
+  $("#modeLabel").textContent =
+    modes.join(" • ") ||
+    "Gemini 3.7 Flash";
+}
+
+[
+  "webBtn",
+  "studyBtn",
+  "academicBtn",
+  "strictBtn",
+  "codingBtn"
+].forEach(id => {
+
+  $("#" + id).addEventListener(
+    "click",
+    updateModeLabel
+  );
+
+});
+
+
+/* =========================================================
+   NEW CHAT
+   ========================================================= */
+
+$("#newChat").onclick =
+  createChat;
+
+
+/* =========================================================
+   SEARCH
+   ========================================================= */
+
+$("#searchHistory").addEventListener(
+  "input",
+  e =>
+    renderHistory(
+      e.target.value
+    )
+);
+
+
+/* =========================================================
+   THEME
+   ========================================================= */
+
+function setDark(value) {
+
+  state.dark = value;
+
+  document.body.classList.toggle(
+    "dark",
+    value
+  );
+
+  localStorage.setItem(
+    "schoolbuds_dark",
+    value ? "1" : "0"
+  );
+}
+
+$("#themeBtn").onclick = () => {
+
+  setDark(!state.dark);
+
+  toast(
+    state.dark
+      ? "Dark mode enabled"
+      : "Light mode enabled",
+    "sun-moon"
+  );
+};
+
+$("#darkToggle").onclick = () => {
+  setDark(!state.dark);
+};
+
+
+/* =========================================================
+   SETTINGS
+   ========================================================= */
+
+$("#settingsBtn").onclick =
+  () =>
+    openModal(
+      "settingsModal"
+    );
+
+$("#thinkingSelect").onchange =
+  e => {
+
+    state.thinkingLevel =
+      e.target.value;
+
+    localStorage.setItem(
+      "schoolbuds_thinking",
+      state.thinkingLevel
+    );
+  };
+
+document.querySelectorAll(
+  "[data-close]"
+).forEach(btn => {
+
+  btn.onclick = () =>
+    closeModal(
+      btn.dataset.close
+    );
+
+});
+
+
+function openModal(id) {
+  $("#" + id)
+    .classList.add("show");
+}
+
+function closeModal(id) {
+  $("#" + id)
+    .classList.remove("show");
+}
+
+document.querySelectorAll(
+  ".modal-backdrop"
+).forEach(backdrop => {
+
+  backdrop.addEventListener(
+    "click",
+    e => {
+
+      if (e.target === backdrop) {
+        backdrop.classList.remove(
+          "show"
+        );
+      }
+
+    }
+  );
+
+});
+
+
+/* =========================================================
+   IMAGE STUDIO
+   ========================================================= */
+
+$("#imageBtn").onclick =
+  () =>
+    openModal("imageModal");
+
+$("#imageDrop").onclick =
+  () =>
+    $("#imageInput").click();
+
+$("#imageInput").onchange =
+  async e => {
+
+    const file =
+      e.target.files[0];
+
+    if (!file) return;
+
+    state.imageData =
+      await fileToBase64(file);
+
+    state.imageMime =
+      file.type || "image/png";
+
+    const preview =
+      $("#imagePreview");
+
+    preview.src =
+      `data:${state.imageMime};base64,${state.imageData}`;
+
+    preview.style.display =
+      "block";
+
+    toast(
+      "Image loaded.",
+      "image"
+    );
+  };
+
+
+$("#generateImage").onclick =
+  async () => {
+
+    const prompt =
+      $("#imagePrompt")
+        .value
+        .trim();
+
+    if (!prompt) {
+
+      toast(
+        "Enter an image prompt first.",
+        "alert-circle"
+      );
+
+      return;
+    }
+
+    const button =
+      $("#generateImage");
+
+    button.disabled = true;
+
+    button.textContent =
+      "Generating...";
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/image",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+            body: JSON.stringify({
+              prompt,
+
+              image:
+                state.imageData,
+
+              mimeType:
+                state.imageMime,
+
+              aspectRatio:
+                $("#aspectRatio")
+                  .value,
+
+              imageSize:
+                $("#imageSize")
+                  .value
+            })
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error ||
+          "Image generation failed."
+        );
+      }
+
+      const output =
+        $("#generatedImageEl");
+
+      output.src =
+        `data:${data.mimeType};base64,${data.image}`;
+
+      output.dataset.base64 =
+        data.image;
+
+      output.dataset.mime =
+        data.mimeType;
+
+      $("#generatedImage")
+        .style.display =
+        "block";
+
+      toast(
+        "Image generated successfully.",
+        "check"
+      );
+
+    } catch (error) {
+
+      toast(
+        error.message,
+        "alert-circle"
+      );
+
+    } finally {
+
+      button.disabled = false;
+
+      button.innerHTML = `
+        <i data-lucide="wand-sparkles"></i>
+        Generate / Edit Image
+      `;
+
+      icons();
+    }
+  };
+
+
+$("#downloadImage").onclick =
+  () => {
+
+    const img =
+      $("#generatedImageEl");
+
+    if (!img.dataset.base64)
+      return;
+
+    const a =
+      document.createElement("a");
+
+    a.href =
+      `data:${img.dataset.mime};base64,${img.dataset.base64}`;
+
+    a.download =
+      "schoolbuds-ai-image.png";
+
+    a.click();
+  };
+
+
+/* =========================================================
+   CALCULATOR
+   ========================================================= */
+
+let calcExpression = "";
+
+$("#calcBtn").onclick =
+  () =>
+    openModal("calcModal");
+
+document.querySelectorAll(
+  "[data-calc]"
+).forEach(button => {
+
+  button.onclick = () => {
+
+    const value =
+      button.dataset.calc;
+
+    if (value === "C") {
+      calcExpression = "";
+    }
+
+    else if (value === "DEL") {
+      calcExpression =
+        calcExpression.slice(
+          0,
+          -1
+        );
+    }
+
+    else if (value === "=") {
+
+      try {
+
+        const result =
+          safeCalculate(
+            calcExpression
+          );
+
+        calcExpression =
+          String(result);
+
+      } catch {
+
+        calcExpression =
+          "Error";
+      }
+
+    }
+
+    else {
+
+      if (
+        calcExpression === "Error"
+      ) {
+        calcExpression = "";
+      }
+
+      calcExpression += value;
+    }
+
+    $("#calcDisplay")
+      .textContent =
+      calcExpression || "0";
+  };
+});
+
+
+function safeCalculate(expression) {
+
+  if (
+    !/^[0-9+\-*/().%\s]+$/
+      .test(expression)
+  ) {
+    throw new Error(
+      "Invalid expression"
+    );
+  }
+
+  if (!expression.trim()) {
+    return 0;
+  }
+
+  /*
+    This expression is limited to
+    mathematical characters only.
+    No identifiers, properties or
+    function calls are allowed.
+  */
+
+  const normalized =
+    expression.replace(
+      /%/g,
+      "/100"
+    );
+
+  const fn =
+    Function(
+      `"use strict"; return (${normalized})`
+    );
+
+  const value = fn();
+
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value)
+  ) {
+    throw new Error(
+      "Invalid result"
+    );
+  }
+
+  return Math.round(
+    value * 1e12
+  ) / 1e12;
+}
+
+
+/* =========================================================
+   MOBILE DRAWER
+   ========================================================= */
+
+function openDrawer() {
+
+  $("#sidebar")
+    .classList.add("open");
+
+  $("#drawerOverlay")
+    .classList.add("show");
+}
+
+function closeDrawer() {
+
+  $("#sidebar")
+    .classList.remove("open");
+
+  $("#drawerOverlay")
+    .classList.remove("show");
+}
+
+$("#openDrawer").onclick =
+  openDrawer;
+
+$("#closeDrawer").onclick =
+  closeDrawer;
+
+$("#drawerOverlay").onclick =
+  closeDrawer;
+
+
+/* =========================================================
+   SWIPE GESTURES
+   ========================================================= */
+
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener(
+  "touchstart",
+  e => {
+
+    const touch =
+      e.changedTouches[0];
+
+    touchStartX =
+      touch.clientX;
+
+    touchStartY =
+      touch.clientY;
+  },
+  {passive:true}
+);
+
+document.addEventListener(
+  "touchend",
+  e => {
+
+    const touch =
+      e.changedTouches[0];
+
+    const dx =
+      touch.clientX -
+      touchStartX;
+
+    const dy =
+      touch.clientY -
+      touchStartY;
+
+    if (
+      Math.abs(dx) < 70 ||
+      Math.abs(dx) < Math.abs(dy)
+    ) return;
+
+    if (dx > 0) {
+      openDrawer();
+    } else {
+      closeDrawer();
+    }
+  },
+  {passive:true}
+);
+
+
+/* =========================================================
+   QUICK PROMPTS
+   ========================================================= */
+
+document.querySelectorAll(
+  ".quick"
+).forEach(button => {
+
+  button.onclick = () =>
+    sendMessage(
+      button.dataset.prompt
+    );
+
+});
+
+
+/* =========================================================
+   CLEAR HISTORY
+   ========================================================= */
+
+$("#clearHistory").onclick =
+  () => {
+
+    if (
+      !confirm(
+        "Delete all local chat history?"
+      )
+    ) return;
+
+    state.chats = [];
+    state.currentId = null;
+    state.messages = [];
+
+    saveChats();
+    renderHistory();
+    renderMessages();
+
+    $("#chatTitle").textContent =
+      "New Chat";
+
+    $("#welcome").style.display =
+      "block";
+
+    toast(
+      "Local history cleared.",
+      "trash-2"
+    );
+  };
+
+
+/* =========================================================
+   MODEL CHANGE
+   ========================================================= */
+
+$("#modelSelect").onchange =
+  () => {
+
+    toast(
+      "Model changed to " +
+      $("#modelSelect")
+        .selectedOptions[0]
+        .textContent.trim(),
+      "cpu"
+    );
+  };
+
+
+/* =========================================================
+   SCROLL
+   ========================================================= */
+
+function scrollBottom() {
+
+  const chat =
+    $("#chat");
+
+  chat.scrollTop =
+    chat.scrollHeight;
+}
+
+
+/* =========================================================
+   INITIALIZE
+   ========================================================= */
+
+renderHistory();
+
+if (state.chats.length) {
+
+  loadChat(
+    state.chats[0].id
+  );
+
+} else {
+
+  $("#welcome").style.display =
+    "block";
+}
+
+updateModeLabel();
+resizeTextarea();
+icons();
+
+</script>
+
 </body>
 </html>
