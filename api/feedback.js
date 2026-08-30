@@ -1,51 +1,76 @@
-export default async function handler(req, res) {
+export default async function handler(req) {
   if (req.method !== "POST") {
-    return res.status(405).json({
-      ok: false,
-      error: "POST only."
-    });
+    return Response.json(
+      {
+        ok: false,
+        error: "POST method required."
+      },
+      { status: 405 }
+    );
   }
 
   try {
-    const {
-      type,
-      messageId,
-      comment = ""
-    } = req.body || {};
+    const body =
+      await req.json();
 
-    if (!["positive", "negative"].includes(type)) {
-      return res.status(400).json({
-        ok: false,
-        error: "Invalid feedback type."
-      });
+    const {
+      rating,
+      message,
+      conversationId
+    } = body || {};
+
+    if (
+      !rating ||
+      !["up", "down"].includes(rating)
+    ) {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "Rating must be up or down."
+        },
+        { status: 400 }
+      );
     }
 
     /*
-      Vercel serverless functions are stateless.
-      This endpoint validates and logs feedback.
+     * No external database is required.
+     * This confirms the feedback request
+     * was accepted by the backend.
+     *
+     * You can later connect this to
+     * Vercel Postgres/Supabase/etc.
+     */
 
-      For permanent storage, connect this handler to
-      a database such as Vercel Postgres/Blob or another
-      database provider.
-    */
+    console.log(
+      JSON.stringify({
+        type: "student_ai_feedback",
+        rating,
+        message:
+          String(message || "").slice(
+            0,
+            1000
+          ),
+        conversationId:
+          conversationId || null,
+        timestamp:
+          new Date().toISOString()
+      })
+    );
 
-    console.log("SCHOOLBUDS_FEEDBACK", {
-      type,
-      messageId,
-      comment: String(comment).slice(0, 2000),
-      createdAt: new Date().toISOString()
+    return Response.json({
+      ok: true,
+      message:
+        "Feedback received."
     });
 
-    return res.status(200).json({
-      ok: true
-    });
-
-  } catch (error) {
-    console.error(error);
-
-    return res.status(500).json({
-      ok: false,
-      error: "Feedback failed."
-    });
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error: "Invalid JSON."
+      },
+      { status: 400 }
+    );
   }
 }
