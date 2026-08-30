@@ -1,105 +1,196 @@
-import { GoogleGenAI } from "@google/genai";
+const GEMINI_URL =
+  "https://generativelanguage.googleapis.com/v1beta/interactions";
+
+const MODEL =
+  "gemini-3.7-flash";
+
+let keyIndex = 0;
 
 function getKeys() {
-  const raw =
+  return (
     process.env.GEMINI_API_KEYS ||
     process.env.GEMINI_API_KEY ||
-    "";
-
-  return raw
+    ""
+  )
     .split(",")
-    .map(x => x.trim())
+    .map(k => k.trim())
     .filter(Boolean);
 }
 
-function pickKey() {
+function nextKey() {
   const keys = getKeys();
 
   if (!keys.length) {
-    throw new Error("No Gemini API key configured.");
+    throw new Error(
+      "GEMINI_API_KEYS is not configured."
+    );
   }
 
-  return keys[Math.floor(Math.random() * keys.length)];
+  const key =
+    keys[keyIndex % keys.length];
+
+  keyIndex =
+    (keyIndex + 1) % keys.length;
+
+  return key;
 }
 
-export default async function handler(req, res) {
+export default async function handler(req) {
   if (req.method !== "POST") {
-    return res.status(405).json({
-      ok: false,
-      error: "POST only."
-    });
+    return Response.json(
+      {
+        ok: false,
+        error: "POST method required."
+      },
+      { status: 405 }
+    );
   }
+
+  let body;
 
   try {
-    const {
-      prompt = "Analyze this file and explain the important information clearly.",
-      files = []
-    } = req.body || {};
-
-    if (!files.length) {
-      return res.status(400).json({
-        ok: false,
-        error: "No files supplied."
-      });
-    }
-
-    const parts = [
+    body = await req.json();
+  } catch {
+    return Response.json(
       {
-        text: prompt.slice(0, 10000)
-      }
-    ];
-
-    for (const file of files.slice(0, 5)) {
-      if (!file.data || !file.mimeType) continue;
-
-      if (file.data.length > 15_000_000) {
-        continue;
-      }
-
-      parts.push({
-        inline_data: {
-          mime_type: file.mimeType,
-          data: file.data
-        }
-      });
-    }
-
-    const ai = new GoogleGenAI({
-      apiKey: pickKey()
-    });
-
-    const result = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
-      contents: [
-        {
-          role: "user",
-          parts
-        }
-      ],
-      config: {
-        systemInstruction: `
-You are SchoolBuds File Analysis.
-
-Analyze supplied educational files accurately.
-Explain important sections, summarize when requested,
-extract useful information, and help the student understand it.
-
-Do not invent information that is not present in the file.
-`
-      }
-    });
-
-    return res.status(200).json({
-      ok: true,
-      text: result.text || ""
-    });
-
-  } catch (error) {
-    console.error("FILE ERROR:", error);
-
-    return res.status(500).json({
-      ok: false,
-      error: error?.message || "File analysis failed."
-    });
+        ok: false,
+        error: "Invalid JSON."
+      },
+      { status: 400 }
+    );
   }
+
+  const {
+    prompt = "Analyze this file and explain the important information.",
+    file
+  } = body || {};
+
+  if (
+    !file?.data ||
+    !file?.mimeType
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error: "A file is required."
+      },
+      { status: 400 }
+    );
+  }
+
+  let key;
+
+  try {
+    key = nextKey();
+  } catch (error) {
+    return Response.json(
+      {
+        ok: false,
+        error: error.message
+      },
+      { status: 500 }
+    );
+  }
+
+  const mime =
+    String(file.mimeType);
+
+  const input = [
+    {
+      type: "text",
+      text: String(prompt)
+    }
+  ];
+
+  if (
+    mime === "application/pdf" ||
+    mime.startsWith("text/") ||
+    mime === "application/json"
+  ) {
+    input.push({
+      type: "document",
+      data: file.data,
+      mime_type: mime
+    });
+  } else if (
+    mime.startsWith("image/")
+  ) {
+    input.push({
+      type: "image",
+      data: file.data,
+      mime_type: mime
+    });
+  } else {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          `Unsupported file type: ${mime}`
+      },
+      { status: 400 }
+    );
+  }
+
+  const response =
+    await fetch(
+      GEMINI_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          "x-goog-api-key": key
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          input,
+          store: false,
+          generation_config: {
+            thinking_level: "medium"
+          }
+        })
+      }
+    );
+
+  const data =
+    await response.json();
+
+  if (!response.ok) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          data?.error?.message ||
+          "File analysis failed."
+      },
+      {
+        status: response.status
+      }
+    );
+  }
+
+  let text =
+    data.output_text || "";
+
+  if (!text) {
+    for (
+      const step of data.steps || []
+    ) {
+      for (
+        const block of
+          step.content || []
+      ) {
+        if (
+          block.type === "text"
+        ) {
+          text += block.text || "";
+        }
+      }
+    }
+  }
+
+  return Response.json({
+    ok: true,
+    text
+  });
 }
