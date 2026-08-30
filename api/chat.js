@@ -1,166 +1,310 @@
 import { GoogleGenAI } from "@google/genai";
 
-const MODEL_DEFAULT = "gemini-3.7-flash";
+const DEFAULT_MODEL =
+  "gemini-3.7-flash";
 
 function getKeys() {
-  const raw = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || "";
 
-  return raw
+  return (
+    process.env.GEMINI_API_KEYS ||
+    process.env.GEMINI_API_KEY ||
+    ""
+  )
     .split(",")
     .map(k => k.trim())
     .filter(Boolean);
 }
 
-function pickKey() {
+function getRandomKey() {
+
   const keys = getKeys();
 
   if (!keys.length) {
-    throw new Error("No Gemini API key configured.");
+    throw new Error(
+      "GEMINI_API_KEYS is not configured."
+    );
   }
 
-  const index = Math.floor(Math.random() * keys.length);
-  return keys[index];
+  return keys[
+    Math.floor(Math.random() * keys.length)
+  ];
 }
 
-function cleanMessages(messages) {
-  if (!Array.isArray(messages)) return [];
+function getSystemInstruction(options) {
 
-  return messages
-    .filter(m => m && typeof m.content === "string")
-    .slice(-40)
-    .map(m => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content.slice(0, 30000) }]
-    }));
-}
-
-function buildInstruction(options = {}) {
   const {
-    studyMode = false,
-    academicMaster = false,
-    strictSubject = false,
-    codingAssistant = false
+    studyMode,
+    academicMaster,
+    strictSubject,
+    codingAssistant
   } = options;
 
-  let instruction = `
-You are SchoolBuds AI, an educational assistant designed to help students.
+  let text = `
+You are SchoolBuds AI, a student-focused
+academic AI tutor.
 
-IMPORTANT IDENTITY:
-If the user asks who created, developed, programmed, or made you, answer:
+If the user asks who created, developed,
+programmed, or made you, answer exactly:
+
 "SchoolBuds AI was developed by Jay-Ar Lee Espiritu."
 
-You are an expert educational tutor across mathematics, science, English,
-Filipino, programming, computer science, history, social studies, research,
-writing, and other normal academic subjects.
+You are highly knowledgeable across normal
+academic subjects including:
 
-Your purpose is to TEACH, not merely dump answers.
+Mathematics
+Science
+English
+Filipino
+History
+Social Studies
+Programming
+Computer Science
+Research
+Writing
+and other academic subjects.
 
-When explaining academic problems:
+Your job is to help students understand
+concepts instead of simply dumping answers.
+
+For academic problems:
+
 1. Understand the question.
 2. Explain the concept.
-3. Show the solution or reasoning in clear steps.
-4. Give the final answer.
-5. When useful, provide a short practice question.
+3. Give clear steps.
+4. Provide the answer.
+5. Give an example when useful.
+
+Use Markdown when useful.
+
+Use fenced code blocks for programming.
 
 Never claim to be a human teacher.
 
-Use Markdown when useful.
-Use fenced code blocks for programming code.
-
-For homework questions, encourage understanding and show the method.
-Do not fabricate sources.
-If information may be current, recommend or use web search when enabled.
-
-Keep answers age-appropriate, respectful and educational.
+Be accurate and do not fabricate sources.
 `;
 
   if (studyMode) {
-    instruction += `
+
+    text += `
+
 STUDY MODE:
+
 Teach interactively.
-Break difficult lessons into small sections.
-Ask a short comprehension question when appropriate.
-Prefer explanations, examples and practice over simply giving an answer.
+
+Break difficult lessons into smaller
+sections.
+
+Use examples and short practice questions
+when useful.
+
+Prioritize learning and understanding.
 `;
   }
 
   if (academicMaster) {
-    instruction += `
-ACADEMIC MASTER MODE:
-Act as an exceptionally strong academic tutor with graduate-level breadth
-while explaining concepts in a way a student can understand.
+
+    text += `
+
+ACADEMIC MASTER:
+
+Act as an exceptionally strong academic
+tutor with broad subject knowledge.
+
 Be rigorous, precise and organized.
-Do not claim an actual degree or academic honor.
+
+Do not falsely claim an actual degree,
+academic honor, or real-world credential.
 `;
   }
 
   if (strictSubject) {
-    instruction += `
-STRICT TUTORING SUBJECT MODE:
-Stay focused on the academic subject requested by the user.
-If the user changes subjects, acknowledge the change and refocus.
+
+    text += `
+
+STRICT TUTORING:
+
+Stay focused on the academic subject
+requested by the student.
+
 Avoid unnecessary unrelated discussion.
 `;
   }
 
   if (codingAssistant) {
-    instruction += `
-CODING ASSISTANT MODE:
-Act as a senior programming tutor.
-Explain bugs, architecture and code clearly.
-Prefer complete working examples.
-When modifying code, preserve important existing functionality.
-Mention important security considerations.
+
+    text += `
+
+CODING ASSISTANT:
+
+Act as a strong programming tutor.
+
+Explain bugs clearly.
+
+Provide complete working examples
+when appropriate.
+
+Consider security and reliability.
 `;
   }
 
-  return instruction;
+  return text;
 }
 
-function makeContents(messages, files) {
-  const contents = cleanMessages(messages);
+function buildInput(messages, files) {
 
-  if (files?.length) {
-    const last = contents[contents.length - 1];
+  const input = [];
 
-    if (last?.role === "user") {
-      for (const file of files.slice(0, 4)) {
-        if (
-          file?.mimeType &&
-          file?.data &&
-          file.data.length < 15_000_000
-        ) {
-          last.parts.push({
-            inline_data: {
-              mime_type: file.mimeType,
-              data: file.data
-            }
-          });
-        }
-      }
+  /*
+    Interactions API expects user/model history
+    in structured interaction steps when sending
+    stateless conversation history.
+  */
+
+  for (
+    const message of messages.slice(-30)
+  ) {
+
+    if (
+      message.role === "user"
+    ) {
+
+      input.push({
+        type: "user_input",
+        content: [
+          {
+            type: "text",
+            text:
+              String(
+                message.content || ""
+              )
+          }
+        ]
+      });
+
+    } else if (
+      message.role === "assistant"
+    ) {
+
+      input.push({
+        type: "model_output",
+        content: [
+          {
+            type: "text",
+            text:
+              String(
+                message.content || ""
+              )
+          }
+        ]
+      });
+
     }
+
   }
 
-  return contents;
+  /*
+    Attach files to the latest user turn.
+  */
+
+  if (files?.length) {
+
+    const lastUser =
+      [...input]
+        .reverse()
+        .find(
+          x => x.type === "user_input"
+        );
+
+    if (lastUser) {
+
+      for (
+        const file of files.slice(0, 5)
+      ) {
+
+        if (
+          !file.data ||
+          !file.mimeType
+        ) {
+          continue;
+        }
+
+        /*
+          Gemini Interactions uses document
+          blocks for PDFs and image blocks for
+          images.
+        */
+
+        if (
+          file.mimeType ===
+          "application/pdf"
+        ) {
+
+          lastUser.content.push({
+            type: "document",
+            data: file.data,
+            mime_type: file.mimeType
+          });
+
+        } else if (
+          file.mimeType.startsWith(
+            "image/"
+          )
+        ) {
+
+          lastUser.content.push({
+            type: "image",
+            data: file.data,
+            mime_type: file.mimeType
+          });
+
+        } else {
+
+          /*
+            For text-like files, decode them
+            server-side is not necessary if
+            the browser already has the content.
+            The frontend currently sends base64,
+            so treat it as a document only for
+            supported document types.
+          */
+
+          lastUser.content.push({
+            type: "document",
+            data: file.data,
+            mime_type: file.mimeType
+          });
+
+        }
+
+      }
+
+    }
+
+  }
+
+  return input;
 }
 
-function sendError(res, status, message) {
-  res.status(status).json({
-    ok: false,
-    error: message
-  });
-}
+export default async function handler(
+  req,
+  res
+) {
 
-export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return sendError(res, 405, "POST only.");
+
+    return res.status(405).json({
+      ok: false,
+      error:
+        "POST method required."
+    });
   }
 
   try {
+
     const {
       messages = [],
       files = [],
-      model = MODEL_DEFAULT,
+      model = DEFAULT_MODEL,
       webSearch = false,
       studyMode = false,
       academicMaster = false,
@@ -169,106 +313,208 @@ export default async function handler(req, res) {
       thinkingLevel = "medium"
     } = req.body || {};
 
-    const allowedModels = [
-      "gemini-3.7-flash",
-      "gemini-3.6-flash"
-    ];
+    if (
+      !Array.isArray(messages) ||
+      !messages.length
+    ) {
 
-    const selectedModel = allowedModels.includes(model)
-      ? model
-      : MODEL_DEFAULT;
-
-    const allowedThinking = ["low", "medium", "high"];
-
-    const selectedThinking = allowedThinking.includes(thinkingLevel)
-      ? thinkingLevel
-      : "medium";
-
-    const key = pickKey();
-
-    const ai = new GoogleGenAI({
-      apiKey: key
-    });
-
-    const contents = makeContents(messages, files);
-
-    if (!contents.length) {
-      return sendError(res, 400, "No conversation content supplied.");
+      return res.status(400).json({
+        ok: false,
+        error:
+          "No conversation messages."
+      });
     }
 
+    const allowedModels = [
+      "gemini-3.7-flash"
+    ];
+
+    /*
+      Keep the release version locked to
+      the requested Gemini 3.7 Flash.
+    */
+
+    const selectedModel =
+      allowedModels.includes(model)
+        ? model
+        : DEFAULT_MODEL;
+
+    const allowedThinking = [
+      "low",
+      "medium",
+      "high"
+    ];
+
+    const selectedThinking =
+      allowedThinking.includes(
+        thinkingLevel
+      )
+        ? thinkingLevel
+        : "medium";
+
+    const ai = new GoogleGenAI({
+      apiKey: getRandomKey()
+    });
+
+    const input =
+      buildInput(
+        messages,
+        files
+      );
+
     const config = {
-      systemInstruction: buildInstruction({
-        studyMode,
-        academicMaster,
-        strictSubject,
-        codingAssistant
-      }),
-      thinkingConfig: {
-        thinkingLevel: selectedThinking
-      }
+
+      model:
+        selectedModel,
+
+      input,
+
+      system_instruction:
+        getSystemInstruction({
+          studyMode,
+          academicMaster,
+          strictSubject,
+          codingAssistant
+        }),
+
+      generation_config: {
+        thinking_level:
+          selectedThinking
+      },
+
+      stream: true,
+
+      store: false
     };
 
     if (webSearch) {
+
       config.tools = [
         {
-          googleSearch: {}
+          type:
+            "google_search"
         }
       ];
     }
 
     res.statusCode = 200;
-    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache, no-transform");
-    res.setHeader("Connection", "keep-alive");
-    res.setHeader("X-Accel-Buffering", "no");
 
-    const stream = await ai.models.generateContentStream({
-      model: selectedModel,
-      contents,
-      config
-    });
+    res.setHeader(
+      "Content-Type",
+      "text/event-stream; charset=utf-8"
+    );
 
-    for await (const chunk of stream) {
-      if (res.writableEnded) break;
+    res.setHeader(
+      "Cache-Control",
+      "no-cache, no-transform"
+    );
 
-      const text = chunk.text || "";
+    res.setHeader(
+      "Connection",
+      "keep-alive"
+    );
 
-      if (text) {
-        res.write(
-          `data: ${JSON.stringify({
-            type: "text",
-            text
-          })}\n\n`
-        );
+    res.setHeader(
+      "X-Accel-Buffering",
+      "no"
+    );
+
+    const stream =
+      await ai.interactions.create(
+        config
+      );
+
+    let sentText = false;
+
+    for await (
+      const event of stream
+    ) {
+
+      if (
+        res.writableEnded
+      ) {
+        break;
       }
+
+      /*
+        Current Interactions streaming emits
+        step.delta events.
+      */
+
+      if (
+        event.event_type ===
+        "step.delta"
+      ) {
+
+        const delta =
+          event.delta;
+
+        if (
+          delta?.type === "text" &&
+          delta.text
+        ) {
+
+          sentText = true;
+
+          res.write(
+            `data: ${JSON.stringify({
+              type: "text",
+              text: delta.text
+            })}\n\n`
+          );
+
+        }
+
+      }
+
     }
+
+    /*
+      Some SDK/API versions may provide the
+      complete output through another event.
+      The frontend only needs the text deltas
+      for streaming.
+    */
 
     res.write(
       `data: ${JSON.stringify({
-        type: "done"
+        type: "done",
+        streamed: sentText
       })}\n\n`
     );
 
     res.end();
 
   } catch (error) {
-    console.error("CHAT ERROR:", error);
 
-    if (!res.headersSent) {
-      return sendError(
-        res,
-        500,
-        error?.message || "Gemini request failed."
-      );
-    }
-
-    res.write(
-      `data: ${JSON.stringify({
-        type: "error",
-        error: error?.message || "Generation failed."
-      })}\n\n`
+    console.error(
+      "SCHOOLBUDS CHAT ERROR:",
+      error
     );
 
-    res.end();
+    if (
+      res.headersSent
+    ) {
+
+      res.write(
+        `data: ${JSON.stringify({
+          type: "error",
+          error:
+            error?.message ||
+            "Gemini request failed."
+        })}\n\n`
+      );
+
+      res.end();
+
+      return;
+    }
+
+    return res.status(500).json({
+      ok: false,
+      error:
+        error?.message ||
+        "Gemini request failed."
+    });
   }
 }
