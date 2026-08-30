@@ -1,1 +1,8 @@
-{"name":"jampong-ai","version":"4.0.0","private":true,"engines":{"node":">=20"}}
+{
+  "name": "jampong-ai",
+  "version": "5.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}
