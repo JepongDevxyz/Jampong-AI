@@ -1,4 +1,10 @@
-import { GoogleGenAI } from "@google/genai";
+const GEMINI_URL =
+  "https://generativelanguage.googleapis.com/v1beta/interactions";
+
+const IMAGE_MODEL =
+  "gemini-3.1-flash-image";
+
+let keyIndex = 0;
 
 function getKeys() {
   return (
@@ -11,7 +17,7 @@ function getKeys() {
     .filter(Boolean);
 }
 
-function getRandomKey() {
+function nextKey() {
   const keys = getKeys();
 
   if (!keys.length) {
@@ -20,189 +26,231 @@ function getRandomKey() {
     );
   }
 
-  return keys[
-    Math.floor(Math.random() * keys.length)
-  ];
+  const key =
+    keys[keyIndex % keys.length];
+
+  keyIndex =
+    (keyIndex + 1) % keys.length;
+
+  return key;
 }
 
-function errorResponse(res, status, message) {
-  return res.status(status).json({
-    ok: false,
-    error: message
-  });
-}
-
-export default async function handler(req, res) {
-
+export default async function handler(req) {
   if (req.method !== "POST") {
-    return errorResponse(
-      res,
-      405,
-      "POST method required."
+    return Response.json(
+      {
+        ok: false,
+        error: "POST method required."
+      },
+      { status: 405 }
     );
   }
 
+  let body;
+
   try {
+    body = await req.json();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error: "Invalid JSON."
+      },
+      { status: 400 }
+    );
+  }
 
-    const {
-      prompt,
-      image,
-      mimeType,
-      aspectRatio = "1:1",
-      imageSize = "1K"
-    } = req.body || {};
+  const {
+    prompt,
+    imageData = null,
+    mimeType = null,
+    aspectRatio = "1:1",
+    imageSize = "1K"
+  } = body || {};
 
-    if (
-      !prompt ||
-      typeof prompt !== "string" ||
-      !prompt.trim()
-    ) {
-      return errorResponse(
-        res,
-        400,
-        "Image prompt is required."
-      );
-    }
+  if (
+    typeof prompt !== "string" ||
+    !prompt.trim()
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Image prompt is required."
+      },
+      { status: 400 }
+    );
+  }
 
-    const ai = new GoogleGenAI({
-      apiKey: getRandomKey()
-    });
+  let key;
 
-    const input = [];
+  try {
+    key = nextKey();
+  } catch (error) {
+    return Response.json(
+      {
+        ok: false,
+        error: error.message
+      },
+      { status: 500 }
+    );
+  }
 
-    /*
-      If an image was supplied, Gemini receives it
-      as an image content block for editing.
-    */
+  const input = [];
 
-    if (image) {
-
-      const safeMime =
-        [
-          "image/jpeg",
-          "image/png",
-          "image/webp"
-        ].includes(mimeType)
-          ? mimeType
-          : "image/jpeg";
-
-      input.push({
-        type: "image",
-        data: image,
-        mime_type: safeMime
-      });
-
-    }
-
+  if (
+    imageData &&
+    typeof imageData === "string" &&
+    mimeType &&
+    mimeType.startsWith("image/")
+  ) {
     input.push({
-      type: "text",
-      text: image
-        ? `
-Edit the supplied image according to the following instruction.
-
-${prompt}
-
-Keep the original subject and important details
-unless the user explicitly asks to change them.
-Return the edited image.
-`
-        : prompt
+      type: "image",
+      data: imageData,
+      mime_type: mimeType
     });
+  }
 
-    /*
-      Current Gemini image API.
-      JPEG is intentionally used because the API
-      currently rejects image/png in this response
-      configuration on the deployed endpoint.
-    */
+  input.push({
+    type: "text",
+    text: imageData
+      ? `
+Edit the supplied image according to this instruction:
 
-    const interaction =
-      await ai.interactions.create({
+${prompt.trim()}
 
-        model:
-          "gemini-3.1-flash-image",
+Preserve important details unless the user explicitly asks
+to change them.
+`
+      : prompt.trim()
+  });
 
-        input,
+  const payload = {
+    model: IMAGE_MODEL,
+    input,
+    response_format: {
+      type: "image",
+      aspect_ratio:
+        aspectRatio,
+      image_size:
+        imageSize
+    }
+  };
 
-        response_format: {
-          type: "image",
-          mime_type: "image/jpeg",
-          aspect_ratio: aspectRatio,
-          image_size: imageSize
-        }
+  let response;
 
-      });
+  try {
+    response = await fetch(
+      GEMINI_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          "x-goog-api-key": key
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+  } catch (error) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Gemini image connection failed: " +
+          error.message
+      },
+      { status: 502 }
+    );
+  }
 
-    let outputImage = null;
+  const data =
+    await response.json();
 
-    /*
-      SDK convenience property.
-    */
+  if (!response.ok) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          data?.error?.message ||
+          "Image generation failed.",
+        details: data
+      },
+      {
+        status: response.status
+      }
+    );
+  }
 
-    if (interaction.output_image) {
-      outputImage =
-        interaction.output_image.data;
+  let image = null;
+  let outputMime =
+    "image/png";
+
+  /*
+   * Current Interactions schema:
+   * steps -> model_output -> content -> image
+   */
+
+  for (
+    const step of data.steps || []
+  ) {
+    if (
+      step.type !==
+      "model_output"
+    ) {
+      continue;
     }
 
-    /*
-      Fallback: inspect model_output steps.
-    */
-
-    if (!outputImage) {
-
-      for (
-        const step of interaction.steps || []
+    for (
+      const block of
+        step.content || []
+    ) {
+      if (
+        block.type === "image" &&
+        block.data
       ) {
+        image =
+          block.data;
 
-        if (
-          step.type !== "model_output"
-        ) {
-          continue;
-        }
+        outputMime =
+          block.mime_type ||
+          "image/png";
 
-        for (
-          const block of step.content || []
-        ) {
-
-          if (
-            block.type === "image" &&
-            block.data
-          ) {
-            outputImage =
-              block.data;
-            break;
-          }
-
-        }
-
-        if (outputImage) break;
+        break;
       }
     }
 
-    if (!outputImage) {
-      throw new Error(
-        "Gemini returned no image."
-      );
-    }
+    if (image) break;
+  }
 
-    return res.status(200).json({
-      ok: true,
-      image: outputImage,
-      mimeType: "image/jpeg"
-    });
+  /*
+   * SDK/REST convenience-style fallback.
+   */
+  if (
+    !image &&
+    data.output_image?.data
+  ) {
+    image =
+      data.output_image.data;
 
-  } catch (error) {
+    outputMime =
+      data.output_image.mime_type ||
+      "image/png";
+  }
 
-    console.error(
-      "SCHOOLBUDS IMAGE ERROR:",
-      error
-    );
-
-    return errorResponse(
-      res,
-      500,
-      error?.message ||
-        "Image generation failed."
+  if (!image) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Gemini completed the request but returned no image."
+      },
+      { status: 502 }
     );
   }
+
+  return Response.json({
+    ok: true,
+    image,
+    mimeType: outputMime
+  });
 }
